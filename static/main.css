@@ -1,0 +1,17 @@
+*, *::after, *::before {
+    box-sizing: border-box;
+}
+
+html {
+    min-height: 100%;
+    display: flex;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    margin: 0;
+    width: 100vw;
+    font-family: 'Open Sans', sans-serif;
+}
