@@ -1,10 +1,45 @@
 #include <iostream>
 #include <memory>
+#include <tuple>
 
-#include "game.h"
+#include "players.h"
+
+const int max_moves = 6;
+
+enum class Player {
+    HOST,
+    GUESSER,
+    UNDEFINED
+};
+
+std::tuple<Player, int, std::string> Play(const std::vector<std::string> &dict, Host *host, Guesser *guesser,
+                                             bool print_game) {
+    std::vector<std::string> guesses, results;
+    for (int move = 1; move <= max_moves; ++move) {
+        std::string guess = guesser->MakeGuess();
+        std::string result = host->OnGuess(guess);
+        if (print_game) {
+            PrintColored(guess, result);
+        }
+        guesser->OnResult(guess, result);
+        guesses.push_back(guess);
+        results.push_back(result);
+        if (std::count(result.begin(), result.end(), 'g') == result.size()) {
+            return {Player::GUESSER, move, guess};
+        }
+    }
+    std::string answer = host->GetAnswer();
+    for (int move = 1; move <= max_moves; ++move) {
+        if (Compare(guesses[move - 1], answer) != results[move - 1]) {
+            std::cerr << "host error on move " << move << std::endl;
+            return {Player::UNDEFINED, move, answer};
+        }
+    }
+    return {Player::HOST, 0, answer};
+}
 
 int main() {
-    auto dict = ReadDict("dictionary.txt");
+    auto dict = ReadDictionary("dictionary.txt");
     std::cout << "host type (1 - fixed, 2 - random, 3 - stdio, 4 - hater): ";
     int host_type;
     std::cin >> host_type;
@@ -36,12 +71,11 @@ int main() {
         std::cout << "unknown type, exiting" << std::endl;
         return 0;
     }
-    ConsoleGame game(dict, host.get(), guesser.get());
-    game.Play(host_type != 3 && guesser_type != 1);
-    Player winner = game.GetWinner();
+    bool print_game = host_type != 3 && guesser_type != 1;
+    auto [winner, move, answer] = Play(dict, host.get(), guesser.get(), print_game);
     if (winner == Player::GUESSER) {
-        std::cout << "guesser won in " << game.GetMove() << " moves" << std::endl;
+        std::cout << "guesser won in " << move << " moves" << std::endl;
     } else if (winner == Player::HOST) {
-        std::cout << "host won, the answer was '" << game.GetAnswer() << "'" << std::endl;
+        std::cout << "host won, the answer was '" << answer << "'" << std::endl;
     }
 }

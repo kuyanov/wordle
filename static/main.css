@@ -15,3 +15,53 @@ body {
     width: 100vw;
     font-family: 'Open Sans', sans-serif;
 }
+
+.field {
+    display: grid;
+    grid-template-rows: repeat(6, 1fr);
+    grid-gap: 5px;
+    padding: 5px;
+    margin: auto;
+}
+
+.row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-gap: 5px;
+}
+
+.letterbox {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 65px;
+    width: 65px;
+    font-size: 35px;
+    font-weight: bold;
+}
+
+.letterbox.blank {
+    background-color: white;
+    border: 2px solid lightgrey;
+}
+
+.letterbox.focus {
+    color: black;
+    background-color: white;
+    border: 2px solid dimgrey;
+}
+
+.letterbox.absent {
+    color: white;
+    background-color: grey;
+}
+
+.letterbox.present {
+    color: white;
+    background-color: goldenrod;
+}
+
+.letterbox.correct {
+    color: white;
+    background-color: limegreen;
+}

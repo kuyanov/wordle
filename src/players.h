@@ -6,11 +6,11 @@
 #include <fstream>
 #include <iostream>
 #include <random>
+#include <regex>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
-std::vector<std::string> ReadDict(const std::string &filename) {
+std::vector<std::string> ReadDictionary(const std::string &filename) {
     std::ifstream fin(filename);
     std::vector<std::string> dict;
     std::string word;
@@ -54,10 +54,10 @@ void PrintColored(const std::string &guess, const std::string &result) {
 
 class Host {
 protected:
-    std::vector<std::string> dict;
+    const std::vector<std::string> &dict;
 
 public:
-    explicit Host(std::vector<std::string> dict) : dict(std::move(dict)) {}
+    explicit Host(const std::vector<std::string> &dict) : dict(dict) {}
 
     virtual std::string OnGuess(const std::string &) = 0;
 
@@ -72,16 +72,34 @@ public:
 
     std::string OnGuess(const std::string &guess) override {
         std::cout << guess << std::endl;
-        std::string result;
-        std::cin >> result;
-        return result;
+        while (true) {
+            std::string result;
+            std::cin >> result;
+            if (result.size() == guess.size() && std::regex_match(result, std::regex("[\\.|y|g]+"))) {
+                return result;
+            }
+            std::cout << "\x1b[1A";
+            for (size_t i = 0; i < result.size(); ++i) {
+                std::cout << ' ';
+            }
+            std::cout << '\r';
+        }
     }
 
     std::string GetAnswer() override {
-        std::cout << "enter the answer: ";
-        std::string answer;
-        std::cin >> answer;
-        return answer;
+        while (true) {
+            std::cout << "enter the answer: ";
+            std::string answer;
+            std::cin >> answer;
+            if (std::find(dict.begin(), dict.end(), answer) != dict.end()) {
+                return answer;
+            }
+            std::cout << "\x1b[1A";
+            for (size_t i = 0; i < answer.size() + 18; ++i) {
+                std::cout << ' ';
+            }
+            std::cout << '\r';
+        }
     }
 };
 
@@ -89,7 +107,7 @@ class HostFixed : public Host {
     size_t ans_id;
 
 public:
-    explicit HostFixed(std::vector<std::string> dict_, size_t ans_id) : Host(std::move(dict_)), ans_id(ans_id) {}
+    explicit HostFixed(const std::vector<std::string> &dict, size_t ans_id) : Host(dict), ans_id(ans_id) {}
 
     std::string OnGuess(const std::string &guess) override {
         return Compare(guess, dict[ans_id]);
@@ -104,7 +122,7 @@ class HostRandom : public Host {
     size_t ans_id;
 
 public:
-    explicit HostRandom(std::vector<std::string> dict_) : Host(std::move(dict_)) {
+    explicit HostRandom(const std::vector<std::string> &dict) : Host(dict) {
         std::mt19937 rnd(clock());
         ans_id = rnd() % dict.size();
     }
@@ -122,7 +140,7 @@ class HostHater : public Host {
     std::vector<std::string> possibilities;
 
 public:
-    explicit HostHater(std::vector<std::string> dict_) : Host(std::move(dict_)) {
+    explicit HostHater(const std::vector<std::string> &dict) : Host(dict) {
         possibilities = dict;
     }
 
@@ -162,10 +180,10 @@ public:
 
 class Guesser {
 protected:
-    std::vector<std::string> dict;
+    const std::vector<std::string> &dict;
 
 public:
-    explicit Guesser(std::vector<std::string> dict) : dict(std::move(dict)) {}
+    explicit Guesser(const std::vector<std::string> &dict) : dict(dict) {}
 
     virtual std::string MakeGuess() = 0;
 
@@ -179,9 +197,18 @@ public:
     using Guesser::Guesser;
 
     std::string MakeGuess() override {
-        std::string guess;
-        std::cin >> guess;
-        return guess;
+        while (true) {
+            std::string guess;
+            std::cin >> guess;
+            if (std::find(dict.begin(), dict.end(), guess) != dict.end()) {
+                return guess;
+            }
+            std::cout << "\x1b[1A";
+            for (size_t i = 0; i < guess.size(); ++i) {
+                std::cout << ' ';
+            }
+            std::cout << '\r';
+        }
     }
 
     void OnResult(const std::string &guess, const std::string &result) override {
@@ -194,7 +221,7 @@ class GuesserHeuristic : public Guesser {
     std::vector<std::string> possibilities;
 
 public:
-    explicit GuesserHeuristic(std::vector<std::string> dict_) : Guesser(std::move(dict_)) {
+    explicit GuesserHeuristic(const std::vector<std::string> &dict) : Guesser(dict) {
         possibilities = dict;
     }
 
@@ -228,71 +255,5 @@ public:
             }
         }
         possibilities = new_possibilities;
-    }
-};
-
-enum class Player {
-    HOST,
-    GUESSER,
-    UNDEFINED
-};
-
-class ConsoleGame {
-    std::vector<std::string> dict;
-    Host *host;
-    Guesser *guesser;
-    size_t move = 0, max_moves;
-    std::string answer;
-    Player winner = Player::UNDEFINED;
-
-public:
-    ConsoleGame(std::vector<std::string> dict, Host *host, Guesser *guesser, size_t max_moves = 6)
-            : dict(std::move(dict)), host(host), guesser(guesser), max_moves(max_moves) {}
-
-    void Play(bool print_game) {
-        std::vector<std::string> guesses, results;
-        for (move = 1; move <= max_moves; ++move) {
-            std::string guess = guesser->MakeGuess();
-            if (std::find(dict.begin(), dict.end(), guess) == dict.end()) {
-                std::cerr << "guesser error: word '" << guess << "' does not exist" << std::endl;
-                return;
-            }
-            std::string result = host->OnGuess(guess);
-            if (print_game) {
-                PrintColored(guess, result);
-            }
-            guesser->OnResult(guess, result);
-            guesses.push_back(guess);
-            results.push_back(result);
-            if (std::count(result.begin(), result.end(), 'g') == result.size()) {
-                answer = guess;
-                winner = Player::GUESSER;
-                return;
-            }
-        }
-        answer = host->GetAnswer();
-        if (std::find(dict.begin(), dict.end(), answer) == dict.end()) {
-            std::cerr << "host error: word '" << answer << "' does not exist" << std::endl;
-            return;
-        }
-        for (size_t i = 0; i < max_moves; ++i) {
-            if (Compare(guesses[i], answer) != results[i]) {
-                std::cerr << "host error on move " << i + 1 << std::endl;
-                return;
-            }
-        }
-        winner = Player::HOST;
-    }
-
-    [[nodiscard]] size_t GetMove() const {
-        return move;
-    }
-
-    [[nodiscard]] std::string GetAnswer() const {
-        return answer;
-    }
-
-    [[nodiscard]] Player GetWinner() const {
-        return winner;
     }
 };
