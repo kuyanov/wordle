@@ -65,27 +65,29 @@ ws.onmessage = (event) => {
     if (message[0] === '!') {
         setTimeout(() => {
             window.alert("The answer was '" + message.substring(1) + "'");
-        }, 500);
+        }, 300 * num_cols);
         finished = true;
         return;
     }
     for (let j = 0; j < num_cols; ++j) {
         let letterbox = getLetterBox(current_row, j);
-        letterbox.classList.remove("focus");
-        if (message[j] === '.') {
-            letterbox.classList.add("absent");
-        } else if (message[j] === 'y') {
-            letterbox.classList.add("present");
-        } else if (message[j] === 'g') {
-            letterbox.classList.add("correct");
-        }
+        setTimeout(() => {
+            letterbox.classList.remove("focus");
+            if (message[j] === '.') {
+                letterbox.classList.add("absent");
+            } else if (message[j] === 'y') {
+                letterbox.classList.add("present");
+            } else if (message[j] === 'g') {
+                letterbox.classList.add("correct");
+            }
+        }, 300 * j);
     }
     ++current_row;
     current_col = 0;
     if (message === 'g'.repeat(num_cols)) {
         setTimeout(() => {
             window.alert("You won!");
-        }, 500);
+        }, 300 * num_cols);
         finished = true;
     }
 }

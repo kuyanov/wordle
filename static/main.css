@@ -38,6 +38,7 @@ body {
     width: 65px;
     font-size: 35px;
     font-weight: bold;
+    transition: background-color 300ms ease-out;
 }
 
 .letterbox.blank {
