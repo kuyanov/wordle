@@ -6,8 +6,8 @@ let current_col = 0;
 let finished = false;
 let field = document.getElementById("field");
 let params = new URLSearchParams(window.location.search);
-let type = params.get("type") || "random"
-let ws = new WebSocket(`ws://${location.hostname}:${location.port}/${type}`);
+let mode = params.get("mode") || "random"
+let ws = new WebSocket(`ws://${location.hostname}:${location.port}/${mode}`);
 
 function isLetter(str) {
     return str.length === 1 && ((str >= 'a' && str <= 'z') || (str >= 'A' && str <= 'Z'))

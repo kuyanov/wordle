@@ -31,7 +31,7 @@ int main() {
         res->writeHeader("Content-Type", "image/x-icon")->end(ReadFile("static/favicon.ico"));
     }).get("/*", [&](auto *res, auto *req) {
         res->writeStatus("404 Not Found")->end();
-    }).ws<UserData>("/:type", {
+    }).ws<UserData>("/:mode", {
             .upgrade = [&](auto *res, auto *req, auto *context) {
                 std::unique_ptr<Host> host;
                 if (req->getParameter(0) == "random") {
