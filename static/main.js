@@ -5,7 +5,9 @@ let current_row = 0;
 let current_col = 0;
 let finished = false;
 let field = document.getElementById("field");
-let ws = new WebSocket(`ws://${location.hostname}:${location.port}/random`);
+let params = new URLSearchParams(window.location.search);
+let type = params.get("type") || "random"
+let ws = new WebSocket(`ws://${location.hostname}:${location.port}/${type}`);
 
 function isLetter(str) {
     return str.length === 1 && ((str >= 'a' && str <= 'z') || (str >= 'A' && str <= 'Z'))
@@ -56,6 +58,10 @@ window.onkeydown = (event) => {
         ws.send(word);
     }
 };
+
+ws.onerror = (event) => {
+    window.alert("Unable to connect to server");
+}
 
 ws.onmessage = (event) => {
     let message = event.data;

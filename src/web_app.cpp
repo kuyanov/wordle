@@ -31,9 +31,22 @@ int main() {
         res->writeHeader("Content-Type", "image/x-icon")->end(ReadFile("static/favicon.ico"));
     }).get("/*", [&](auto *res, auto *req) {
         res->writeStatus("404 Not Found")->end();
-    }).ws<UserData>("/random", {
-            .open = [&](auto *ws) {
-                ws->getUserData()->host = std::make_unique<HostRandom>(dict);
+    }).ws<UserData>("/:type", {
+            .upgrade = [&](auto *res, auto *req, auto *context) {
+                std::unique_ptr<Host> host;
+                if (req->getParameter(0) == "random") {
+                    host = std::make_unique<HostRandom>(dict);
+                } else if (req->getParameter(0) == "hater") {
+                    host = std::make_unique<HostHater>(dict);
+                } else {
+                    res->writeStatus("404 Not Found")->end();
+                    return;
+                }
+                res->template upgrade<UserData>({.host = std::move(host)},
+                                                req->getHeader("sec-websocket-key"),
+                                                req->getHeader("sec-websocket-protocol"),
+                                                req->getHeader("sec-websocket-extensions"),
+                                                context);
             },
             .message = [&](auto *ws, std::string_view message, uWS::OpCode op_code) {
                 Host *host = ws->getUserData()->host.get();
@@ -43,7 +56,7 @@ int main() {
                 } else if (move < max_moves) {
                     auto result = host->OnGuess(std::string(message));
                     ws->send(result, op_code);
-                    if (++move == max_moves) {
+                    if (++move == max_moves && std::count(result.begin(), result.end(), 'g') != result.size()) {
                         ws->send("!" + host->GetAnswer(), op_code);
                     }
                 }
