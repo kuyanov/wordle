@@ -1,3 +1,3 @@
 # Wordle unlimited
 
-Dictionary is taken from https://www.nytimes.com/games/wordle.
+Check it out here: http://m20-sch57.site:3000
