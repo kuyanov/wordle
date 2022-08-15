@@ -94,6 +94,7 @@ body {
 .key {
     flex: 0 1 45px;
     height: 60px;
+    padding: 0;
     margin: 2px;
     border: none;
     border-radius: 5px;
