@@ -12,6 +12,10 @@ let ws = new WebSocket(`ws://${location.hostname}:${location.port}/${mode}`);
 let field = document.getElementById("field");
 let keyboard = document.getElementById("keyboard");
 
+function ignore(event) {
+    event.preventDefault();
+}
+
 function isLetter(str) {
     return str.length === 1 && ((str >= 'a' && str <= 'z') || (str >= 'A' && str <= 'Z'))
 }
@@ -40,7 +44,7 @@ function onLetter(letter) {
         let letterbox = getLetterBox(current_row, current_col);
         letterbox.classList.remove("blank");
         letterbox.classList.add("focus");
-        letterbox.innerHTML = letter.toUpperCase();
+        letterbox.innerHTML = letter;
         ++current_col;
     }
 }
@@ -59,7 +63,7 @@ function onEnter() {
     if (!finished && current_col === num_cols) {
         let word = "";
         for (let j = 0; j < num_cols; ++j) {
-            word += getLetterBox(current_row, j).innerHTML.toLowerCase();
+            word += getLetterBox(current_row, j).innerHTML;
         }
         ws.send(word);
     }
@@ -72,11 +76,13 @@ function initKeyboard() {
     backspace_key.classList.add("control");
     backspace_key.innerHTML = "<i class=\"fas fa-backspace\"></i>";
     backspace_key.onclick = onBackspace;
+    backspace_key.onkeydown = ignore;
     let enter_key = document.createElement("button");
     enter_key.classList.add("key");
     enter_key.classList.add("control");
     enter_key.innerHTML = "<i class=\"fas fa-arrow-right\"></i>";
     enter_key.onclick = onEnter;
+    enter_key.onkeydown = ignore;
     for (let row_id = 0; row_id < key_rows.length; ++row_id) {
         let row = document.createElement("div");
         row.classList.add("keyboard-row");
@@ -87,8 +93,9 @@ function initKeyboard() {
             let key = document.createElement("button");
             key.classList.add("key");
             key.classList.add("blank");
-            key.innerHTML = c.toUpperCase();
+            key.innerHTML = c;
             key.onclick = () => onLetter(c);
+            key.onkeydown = ignore;
             row.appendChild(key);
         }
         if (row_id === 2) {
@@ -101,7 +108,7 @@ function initKeyboard() {
 function getKey(letter) {
     for (let row_id = 0; row_id < key_rows.length; ++row_id) {
         for (let col_id = 0; col_id < key_rows[row_id].length; ++col_id) {
-            if (key_rows[row_id][col_id].toUpperCase() === letter) {
+            if (key_rows[row_id][col_id] === letter) {
                 if (row_id === 2) ++col_id;
                 return keyboard.children[row_id].children[col_id];
             }

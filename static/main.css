@@ -65,6 +65,7 @@ body {
     width: 65px;
     font-size: 35px;
     font-weight: bold;
+    text-transform: uppercase;
     transition: background-color 300ms ease-out;
 }
 
@@ -100,6 +101,7 @@ body {
     border-radius: 5px;
     font-size: 13px;
     font-weight: bold;
+    text-transform: uppercase;
     cursor: pointer;
     transition: all 300ms ease-out;
     touch-action: manipulation;
@@ -123,4 +125,9 @@ body {
 
 .key.blank:active, .key.control:active {
     background-color: silver;
+}
+
+.key:focus {
+    outline: none;
+    box-shadow: none;
 }
