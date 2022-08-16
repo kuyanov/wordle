@@ -49,6 +49,9 @@ int main() {
                                                 context);
             },
             .message = [&](auto *ws, std::string_view message, uWS::OpCode op_code) {
+                if (message.empty()) {
+                    return;
+                }
                 Host *host = ws->getUserData()->host.get();
                 int &move = ws->getUserData()->move;
                 if (std::find(dict.begin(), dict.end(), message) == dict.end()) {
