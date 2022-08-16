@@ -122,10 +122,6 @@ window.onkeydown = (event) => {
     }
 };
 
-setInterval(() => {
-    ws.send("");
-}, 5000);
-
 ws.onerror = () => {
     window.alert("Unable to connect to the server");
 }
