@@ -13,7 +13,7 @@ enum class Player {
 };
 
 std::tuple<Player, int, std::string> Play(const std::vector<std::string> &dict, Host *host, Guesser *guesser,
-                                             bool print_game) {
+                                          bool print_game) {
     std::vector<std::string> guesses, results;
     for (int move = 1; move <= max_moves; ++move) {
         std::string guess = guesser->MakeGuess();
