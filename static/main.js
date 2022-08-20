@@ -7,7 +7,8 @@ let finished = false;
 let key_rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
 let params = new URLSearchParams(window.location.search);
 let mode = params.get("mode") || "random"
-let ws = new WebSocket(`ws://${location.hostname}:${location.port}/${mode}`);
+let id = Math.random().toString(36).substring(2, 10);
+let ws = null;
 
 let field = document.getElementById("field");
 let keyboard = document.getElementById("keyboard");
@@ -32,40 +33,6 @@ function initField() {
             row.appendChild(letterbox);
         }
         field.appendChild(row);
-    }
-}
-
-function getLetterBox(row, col) {
-    return field.children[row].children[col];
-}
-
-function onLetter(letter) {
-    if (!finished && current_row < num_rows && current_col < num_cols) {
-        let letterbox = getLetterBox(current_row, current_col);
-        letterbox.classList.remove("blank");
-        letterbox.classList.add("focus");
-        letterbox.innerHTML = letter;
-        ++current_col;
-    }
-}
-
-function onBackspace() {
-    if (!finished && current_row < num_rows && current_col > 0) {
-        let letterbox = getLetterBox(current_row, current_col - 1);
-        letterbox.classList.remove("focus");
-        letterbox.classList.add("blank");
-        letterbox.innerHTML = "";
-        --current_col;
-    }
-}
-
-function onEnter() {
-    if (!finished && current_col === num_cols) {
-        let word = "";
-        for (let j = 0; j < num_cols; ++j) {
-            word += getLetterBox(current_row, j).innerHTML;
-        }
-        ws.send(word);
     }
 }
 
@@ -105,6 +72,10 @@ function initKeyboard() {
     }
 }
 
+function getLetterBox(row, col) {
+    return field.children[row].children[col];
+}
+
 function getKey(letter) {
     for (let row_id = 0; row_id < key_rows.length; ++row_id) {
         for (let col_id = 0; col_id < key_rows[row_id].length; ++col_id) {
@@ -116,25 +87,37 @@ function getKey(letter) {
     }
 }
 
-initField();
-initKeyboard();
-
-window.onkeydown = (event) => {
-    if (isLetter(event.key)) {
-        onLetter(event.key);
-    } else if (event.key === "Backspace") {
-        onBackspace();
-    } else if (event.key === "Enter") {
-        onEnter();
+function onLetter(letter) {
+    if (!finished && current_row < num_rows && current_col < num_cols) {
+        let letterbox = getLetterBox(current_row, current_col);
+        letterbox.classList.remove("blank");
+        letterbox.classList.add("focus");
+        letterbox.innerHTML = letter;
+        ++current_col;
     }
-};
-
-ws.onerror = () => {
-    window.alert("Unable to connect to the server, your game is lost :(");
 }
 
-ws.onmessage = (event) => {
-    let message = event.data;
+function onBackspace() {
+    if (!finished && current_row < num_rows && current_col > 0) {
+        let letterbox = getLetterBox(current_row, current_col - 1);
+        letterbox.classList.remove("focus");
+        letterbox.classList.add("blank");
+        letterbox.innerHTML = "";
+        --current_col;
+    }
+}
+
+function onEnter() {
+    if (!finished && current_col === num_cols) {
+        let word = "";
+        for (let j = 0; j < num_cols; ++j) {
+            word += getLetterBox(current_row, j).innerHTML;
+        }
+        ws.send(word);
+    }
+}
+
+function onMessage(message) {
     if (!message) {
         return;
     }
@@ -175,3 +158,30 @@ ws.onmessage = (event) => {
         finished = true;
     }
 }
+
+function connect() {
+    ws = new WebSocket(`ws://${location.hostname}:${location.port}/${mode}/${id}`);
+    ws.onmessage = (event) => {
+        onMessage(event.data);
+    }
+    ws.onerror = () => {
+        ws.close();
+    }
+    ws.onclose = () => {
+        setTimeout(connect, 1000);
+    }
+}
+
+initField();
+initKeyboard();
+connect();
+
+window.onkeydown = (event) => {
+    if (isLetter(event.key)) {
+        onLetter(event.key);
+    } else if (event.key === "Backspace") {
+        onBackspace();
+    } else if (event.key === "Enter") {
+        onEnter();
+    }
+};

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <unordered_map>
 #include <uWebSockets/App.h>
 
 #include "players.h"
@@ -7,9 +8,14 @@
 const int port = 3000;
 const int max_moves = 6;
 
-struct UserData {
+struct GameData {
     std::unique_ptr<Host> host;
     int move = 0;
+};
+
+struct UserData {
+    std::string id;
+    GameData *game;
 };
 
 std::string ReadFile(const std::string &filename) {
@@ -21,6 +27,7 @@ std::string ReadFile(const std::string &filename) {
 
 int main() {
     auto dict = ReadDictionary("dictionary.txt");
+    std::unordered_map<std::string, GameData> games;
     uWS::App().get("/", [&](auto *res, auto *req) {
         res->writeHeader("Content-Type", "text/html")->end(ReadFile("static/index.html"));
     }).get("/main.css", [&](auto *res, auto *req) {
@@ -31,7 +38,7 @@ int main() {
         res->writeHeader("Content-Type", "image/x-icon")->end(ReadFile("static/favicon.ico"));
     }).get("/*", [&](auto *res, auto *req) {
         res->writeStatus("404 Not Found")->end();
-    }).ws<UserData>("/:mode", {
+    }).ws<UserData>("/:mode/:id", {
             .upgrade = [&](auto *res, auto *req, auto *context) {
                 std::unique_ptr<Host> host;
                 if (req->getParameter(0) == "random") {
@@ -42,27 +49,33 @@ int main() {
                     res->writeStatus("404 Not Found")->end();
                     return;
                 }
-                res->template upgrade<UserData>({.host = std::move(host)},
+                std::string id(req->getParameter(1));
+                auto it = games.find(id);
+                if (it == games.end()) {
+                    it = games.insert({id, GameData{.host = std::move(host)}}).first;
+                }
+                res->template upgrade<UserData>({.id = id, .game = &it->second},
                                                 req->getHeader("sec-websocket-key"),
                                                 req->getHeader("sec-websocket-protocol"),
                                                 req->getHeader("sec-websocket-extensions"),
                                                 context);
             },
             .message = [&](auto *ws, std::string_view message, uWS::OpCode op_code) {
-                Host *host = ws->getUserData()->host.get();
-                int &move = ws->getUserData()->move;
+                auto &[host, move] = *ws->getUserData()->game;
                 if (std::find(dict.begin(), dict.end(), message) == dict.end()) {
                     ws->send("", op_code);
                 } else if (move < max_moves) {
                     auto result = host->OnGuess(std::string(message));
+                    bool won = std::count(result.begin(), result.end(), 'g') == result.size();
                     ws->send(result, op_code);
-                    if (++move == max_moves && std::count(result.begin(), result.end(), 'g') != result.size()) {
+                    ++move;
+                    if (move == max_moves && !won) {
                         ws->send("!" + host->GetAnswer(), op_code);
                     }
+                    if (move == max_moves || won) {
+                        games.erase(ws->getUserData()->id);
+                    }
                 }
-            },
-            .close = [&](auto *ws, int code, std::string_view message) {
-                ws->getUserData()->host.reset();
             }
     }).listen(port, [](auto *listen_socket) {
         if (listen_socket) {
