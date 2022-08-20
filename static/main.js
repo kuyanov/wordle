@@ -130,7 +130,7 @@ window.onkeydown = (event) => {
 };
 
 ws.onerror = () => {
-    window.alert("Unable to connect to the server");
+    window.alert("Unable to connect to the server, your game is lost :(");
 }
 
 ws.onmessage = (event) => {
