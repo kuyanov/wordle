@@ -1,5 +1,6 @@
 #include <iostream>
 #include <memory>
+#include <stdexcept>
 #include <tuple>
 
 #include "players.h"
@@ -40,6 +41,9 @@ std::tuple<Player, int, std::string> Play(const std::vector<std::string> &dict, 
 
 int main() {
     auto dict = ReadDictionary("dictionary.txt");
+    if (dict.empty()) {
+        throw std::runtime_error("dictionary not found or empty");
+    }
     std::cout << "host type (1 - fixed, 2 - random, 3 - stdio, 4 - hater): ";
     int host_type;
     std::cin >> host_type;

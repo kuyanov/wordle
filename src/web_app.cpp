@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <unordered_map>
 #include <uWebSockets/App.h>
 
@@ -27,6 +28,9 @@ std::string ReadFile(const std::string &filename) {
 
 int main() {
     auto dict = ReadDictionary("dictionary.txt");
+    if (dict.empty()) {
+        throw std::runtime_error("dictionary not found or empty");
+    }
     std::unordered_map<std::string, GameData> games;
     uWS::App().get("/", [&](auto *res, auto *req) {
         res->writeHeader("Content-Type", "text/html")->end(ReadFile("static/index.html"));
