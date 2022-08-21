@@ -149,14 +149,20 @@ function onMessage(message) {
             }
         }, 300 * j);
     }
-    ++current_row;
-    current_col = 0;
     if (message === 'g'.repeat(num_cols)) {
-        setTimeout(() => {
-            window.alert("You won!");
-        }, 300 * num_cols);
+        for (let j = 0; j < num_cols; ++j) {
+            let letterbox = getLetterBox(current_row, j);
+            setTimeout(() => {
+                letterbox.classList.add("raised");
+            }, 300 * num_cols + 100 * j);
+            setTimeout(() => {
+                letterbox.classList.remove("raised");
+            }, 300 * num_cols + 100 * j + 200);
+        }
         finished = true;
     }
+    ++current_row;
+    current_col = 0;
 }
 
 function connect() {
