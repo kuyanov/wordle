@@ -89,11 +89,11 @@ body {
 }
 
 .letterbox.shaken-left {
-    transform: translateX(-5px);
+    transform: translateX(-3px);
 }
 
 .letterbox.shaken-right {
-    transform: translateX(5px);
+    transform: translateX(3px);
 }
 
 .letterbox.animated-vertically {
