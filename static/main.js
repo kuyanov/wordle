@@ -3,7 +3,7 @@ const num_cols = 5;
 
 let current_row = 0;
 let current_col = 0;
-let finished = false;
+let keyboard_disabled = true;
 let key_rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
 let params = new URLSearchParams(window.location.search);
 let mode = params.get("mode") || "random"
@@ -87,8 +87,52 @@ function getKey(letter) {
     }
 }
 
+function shakeKeysVertically() {
+    for (let j = 0; j < num_cols; ++j) {
+        let letterbox = getLetterBox(current_row, j);
+        setTimeout(() => {
+            letterbox.classList.add("animated-vertically");
+            letterbox.classList.add("shaken-up");
+        }, 300 * num_cols + 100 * j);
+        setTimeout(() => {
+            letterbox.classList.remove("shaken-up");
+        }, 300 * num_cols + 100 * j + 200);
+        setTimeout(() => {
+            letterbox.classList.remove("animated-vertically");
+        }, 300 * num_cols + 100 * j + 400);
+    }
+}
+
+function shakeKeysHorizontally() {
+    for (let j = 0; j < num_cols; ++j) {
+        let letterbox = getLetterBox(current_row, j);
+        setTimeout(() => {
+            letterbox.classList.add("animated-horizontally");
+            letterbox.classList.add("shaken-left");
+        }, 0);
+        setTimeout(() => {
+            letterbox.classList.remove("shaken-left");
+            letterbox.classList.add("shaken-right");
+        }, 50);
+        setTimeout(() => {
+            letterbox.classList.remove("shaken-right");
+            letterbox.classList.add("shaken-left");
+        }, 100);
+        setTimeout(() => {
+            letterbox.classList.remove("shaken-left");
+            letterbox.classList.add("shaken-right")
+        }, 150);
+        setTimeout(() => {
+            letterbox.classList.remove("shaken-right");
+        }, 200);
+        setTimeout(() => {
+            letterbox.classList.remove("animated-horizontally");
+        }, 250);
+    }
+}
+
 function onLetter(letter) {
-    if (!finished && current_row < num_rows && current_col < num_cols) {
+    if (!keyboard_disabled && current_row < num_rows && current_col < num_cols) {
         let letterbox = getLetterBox(current_row, current_col);
         letterbox.classList.remove("blank");
         letterbox.classList.add("focus");
@@ -98,7 +142,7 @@ function onLetter(letter) {
 }
 
 function onBackspace() {
-    if (!finished && current_row < num_rows && current_col > 0) {
+    if (!keyboard_disabled && current_row < num_rows && current_col > 0) {
         let letterbox = getLetterBox(current_row, current_col - 1);
         letterbox.classList.remove("focus");
         letterbox.classList.add("blank");
@@ -108,7 +152,8 @@ function onBackspace() {
 }
 
 function onEnter() {
-    if (!finished && current_col === num_cols) {
+    if (!keyboard_disabled && current_col === num_cols) {
+        keyboard_disabled = true;
         let word = "";
         for (let j = 0; j < num_cols; ++j) {
             word += getLetterBox(current_row, j).innerHTML;
@@ -119,13 +164,16 @@ function onEnter() {
 
 function onMessage(message) {
     if (!message) {
+        shakeKeysHorizontally();
+        setTimeout(() => {
+            keyboard_disabled = false;
+        }, 250);
         return;
     }
     if (message[0] === '!') {
         setTimeout(() => {
             window.alert("The answer was '" + message.substring(1) + "'");
         }, 300 * num_cols);
-        finished = true;
         return;
     }
     for (let j = 0; j < num_cols; ++j) {
@@ -150,16 +198,11 @@ function onMessage(message) {
         }, 300 * j);
     }
     if (message === 'g'.repeat(num_cols)) {
-        for (let j = 0; j < num_cols; ++j) {
-            let letterbox = getLetterBox(current_row, j);
-            setTimeout(() => {
-                letterbox.classList.add("raised");
-            }, 300 * num_cols + 100 * j);
-            setTimeout(() => {
-                letterbox.classList.remove("raised");
-            }, 300 * num_cols + 100 * j + 200);
-        }
-        finished = true;
+        shakeKeysVertically();
+    } else {
+        setTimeout(() => {
+            keyboard_disabled = false;
+        }, 300 * num_cols);
     }
     ++current_row;
     current_col = 0;
@@ -167,6 +210,9 @@ function onMessage(message) {
 
 function connect() {
     ws = new WebSocket(`ws://${location.hostname}:${location.port}/${mode}/${id}`);
+    ws.onopen = () => {
+        keyboard_disabled = false;
+    }
     ws.onmessage = (event) => {
         onMessage(event.data);
     }
@@ -174,6 +220,7 @@ function connect() {
         ws.close();
     }
     ws.onclose = () => {
+        keyboard_disabled = true;
         setTimeout(connect, 1000);
     }
 }

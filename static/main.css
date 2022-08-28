@@ -70,7 +70,7 @@ body {
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
-    transition: background-color 300ms ease-out, transform 200ms linear;
+    transition: background-color 300ms ease-out;
 }
 
 .letterbox.blank {
@@ -84,8 +84,24 @@ body {
     border: 2px solid dimgrey;
 }
 
-.letterbox.raised {
+.letterbox.shaken-up {
     transform: translateY(-15px);
+}
+
+.letterbox.shaken-left {
+    transform: translateX(-5px);
+}
+
+.letterbox.shaken-right {
+    transform: translateX(5px);
+}
+
+.letterbox.animated-vertically {
+    transition: transform 200ms linear;
+}
+
+.letterbox.animated-horizontally {
+    transition: transform 50ms linear;
 }
 
 .keyboard {
@@ -115,7 +131,7 @@ body {
     -webkit-user-select: none;
     -moz-user-select: none;
     touch-action: manipulation;
-    transition: all 300ms ease-out;
+    transition: background-color 300ms ease-out;
 }
 
 .key.blank {
