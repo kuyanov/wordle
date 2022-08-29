@@ -8,6 +8,7 @@ let key_rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
 let params = new URLSearchParams(window.location.search);
 let mode = params.get("mode") || "random"
 let id = Math.random().toString(36).substring(2, 10);
+let answer = null;
 let ws = null;
 
 let field = document.getElementById("field");
@@ -15,6 +16,10 @@ let keyboard = document.getElementById("keyboard");
 
 function ignore(event) {
     event.preventDefault();
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function isLetter(str) {
@@ -87,50 +92,6 @@ function getKey(letter) {
     }
 }
 
-function shakeKeysVertically() {
-    for (let j = 0; j < num_cols; ++j) {
-        let letterbox = getLetterBox(current_row, j);
-        setTimeout(() => {
-            letterbox.classList.add("animated-vertically");
-            letterbox.classList.add("shaken-up");
-        }, 300 * num_cols + 100 * j);
-        setTimeout(() => {
-            letterbox.classList.remove("shaken-up");
-        }, 300 * num_cols + 100 * j + 200);
-        setTimeout(() => {
-            letterbox.classList.remove("animated-vertically");
-        }, 300 * num_cols + 100 * j + 400);
-    }
-}
-
-function shakeKeysHorizontally() {
-    for (let j = 0; j < num_cols; ++j) {
-        let letterbox = getLetterBox(current_row, j);
-        setTimeout(() => {
-            letterbox.classList.add("animated-horizontally");
-            letterbox.classList.add("shaken-left");
-        }, 0);
-        setTimeout(() => {
-            letterbox.classList.remove("shaken-left");
-            letterbox.classList.add("shaken-right");
-        }, 50);
-        setTimeout(() => {
-            letterbox.classList.remove("shaken-right");
-            letterbox.classList.add("shaken-left");
-        }, 100);
-        setTimeout(() => {
-            letterbox.classList.remove("shaken-left");
-            letterbox.classList.add("shaken-right")
-        }, 150);
-        setTimeout(() => {
-            letterbox.classList.remove("shaken-right");
-        }, 200);
-        setTimeout(() => {
-            letterbox.classList.remove("animated-horizontally");
-        }, 250);
-    }
-}
-
 function onLetter(letter) {
     if (!keyboard_disabled && current_row < num_rows && current_col < num_cols) {
         let letterbox = getLetterBox(current_row, current_col);
@@ -162,47 +123,52 @@ function onEnter() {
     }
 }
 
-function onMessage(message) {
+async function onMessage(message) {
     if (!message) {
-        shakeKeysHorizontally();
-        setTimeout(() => {
-            keyboard_disabled = false;
-        }, 250);
+        for (let j = 0; j < num_cols; ++j) {
+            let letterbox = getLetterBox(current_row, j);
+            letterbox.classList.add("shake-horizontally");
+            sleep(250).then(() => letterbox.classList.remove("shake-horizontally"))
+        }
+        await sleep(250);
+        keyboard_disabled = false;
         return;
     }
     if (message[0] === '!') {
-        setTimeout(() => {
-            window.alert("The answer was '" + message.substring(1) + "'");
-        }, 300 * num_cols);
+        answer = message.substring(1);
         return;
     }
     for (let j = 0; j < num_cols; ++j) {
         let letterbox = getLetterBox(current_row, j);
         let key = getKey(letterbox.innerHTML);
-        setTimeout(() => {
-            letterbox.classList.remove("focus");
-            if (message[j] === '.') {
-                letterbox.classList.add("absent");
-                if (key.className === "key blank") {
-                    key.className = "key absent";
-                }
-            } else if (message[j] === 'y') {
-                letterbox.classList.add("present");
-                if (key.className === "key blank" || key.className === "key absent") {
-                    key.className = "key present";
-                }
-            } else if (message[j] === 'g') {
-                letterbox.classList.add("correct");
-                key.className = "key correct";
+        letterbox.classList.remove("focus");
+        if (message[j] === '.') {
+            letterbox.classList.add("absent");
+            if (key.className === "key blank") {
+                key.className = "key absent";
             }
-        }, 300 * j);
+        } else if (message[j] === 'y') {
+            letterbox.classList.add("present");
+            if (key.className === "key blank" || key.className === "key absent") {
+                key.className = "key present";
+            }
+        } else if (message[j] === 'g') {
+            letterbox.classList.add("correct");
+            key.className = "key correct";
+        }
+        await sleep(300);
     }
     if (message === 'g'.repeat(num_cols)) {
-        shakeKeysVertically();
+        for (let j = 0; j < num_cols; ++j) {
+            let letterbox = getLetterBox(current_row, j);
+            letterbox.classList.add("shake-vertically");
+            sleep(400).then(() => letterbox.classList.remove("shake-vertically"));
+            await sleep(100);
+        }
+    } else if (current_row === num_rows - 1) {
+        window.alert(`The answer was '${answer}'`);
     } else {
-        setTimeout(() => {
-            keyboard_disabled = false;
-        }, 300 * num_cols);
+        keyboard_disabled = false;
     }
     ++current_row;
     current_col = 0;
@@ -213,8 +179,8 @@ function connect() {
     ws.onopen = () => {
         keyboard_disabled = false;
     }
-    ws.onmessage = (event) => {
-        onMessage(event.data);
+    ws.onmessage = async (event) => {
+        await onMessage(event.data);
     }
     ws.onerror = () => {
         ws.close();
