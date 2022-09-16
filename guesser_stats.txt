@@ -4,4 +4,6 @@ heuristic guesser stats:
 3: 1065
 4: 1090
 5: 92
+6: 0
 lost: 0
+average: 3.52447

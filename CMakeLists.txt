@@ -6,6 +6,7 @@ set(CMAKE_CXX_FLAGS_ASAN "-g -fsanitize=address,undefined")
 
 find_library(USOCKETS_LIBRARY uSockets.a)
 
+add_executable(Benchmark src/benchmark.cpp)
 add_executable(ConsoleApp src/console_app.cpp)
 add_executable(WebApp src/web_app.cpp)
 

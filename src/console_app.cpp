@@ -1,7 +1,8 @@
+#include <algorithm>
 #include <iostream>
 #include <memory>
-#include <stdexcept>
 #include <tuple>
+#include <vector>
 
 #include "players.h"
 
@@ -41,27 +42,24 @@ std::tuple<Player, int, std::string> Play(const std::vector<std::string> &dict, 
 
 int main() {
     auto dict = ReadDictionary("dictionary.txt");
-    if (dict.empty()) {
-        throw std::runtime_error("dictionary not found or empty");
-    }
     std::cout << "host type (1 - fixed, 2 - random, 3 - stdio, 4 - hater): ";
     int host_type;
     std::cin >> host_type;
     std::unique_ptr<Host> host;
     if (host_type == 1) {
         std::cout << "word id (0 ... " << dict.size() - 1 << "): ";
-        size_t ans_id;
-        std::cin >> ans_id;
-        host = std::make_unique<HostFixed>(dict, ans_id);
+        size_t answer_id;
+        std::cin >> answer_id;
+        host = std::make_unique<HostFixed>(dict, answer_id);
     } else if (host_type == 2) {
         host = std::make_unique<HostRandom>(dict);
     } else if (host_type == 3) {
         host = std::make_unique<HostStdio>(dict);
     } else if (host_type == 4) {
-        host = std::make_unique<HostHater>(dict);
+        host = std::make_unique<HostHater>(dict, 0.1);
     } else {
         std::cout << "unknown type, exiting" << std::endl;
-        return 0;
+        return 1;
     }
     std::cout << "guesser type (1 - stdio, 2 - heuristic): ";
     int guesser_type;
@@ -73,7 +71,7 @@ int main() {
         guesser = std::make_unique<GuesserHeuristic>(dict);
     } else {
         std::cout << "unknown type, exiting" << std::endl;
-        return 0;
+        return 1;
     }
     bool print_game = host_type != 3 && guesser_type != 1;
     auto [winner, move, answer] = Play(dict, host.get(), guesser.get(), print_game);
