@@ -3,12 +3,13 @@ const num_cols = 5;
 
 let current_row = 0;
 let current_col = 0;
-let keyboard_disabled = true;
+let game_over = false;
+let waiting = false;
+let connected = false;
 let key_rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
 let params = new URLSearchParams(window.location.search);
 let mode = params.get("mode") || "random"
 let id = Math.random().toString(36).substring(2, 10);
-let answer = null;
 let ws = null;
 
 let field = document.getElementById("field");
@@ -23,7 +24,11 @@ function sleep(ms) {
 }
 
 function isLetter(str) {
-    return str.length === 1 && ((str >= 'a' && str <= 'z') || (str >= 'A' && str <= 'Z'))
+    return str.length === 1 && ((str >= 'a' && str <= 'z') || (str >= 'A' && str <= 'Z'));
+}
+
+function typingAllowed() {
+    return !game_over && !waiting && connected;
 }
 
 function initField() {
@@ -93,7 +98,7 @@ function getKey(letter) {
 }
 
 function onLetter(letter) {
-    if (!keyboard_disabled && current_row < num_rows && current_col < num_cols) {
+    if (typingAllowed() && current_row < num_rows && current_col < num_cols) {
         let letterbox = getLetterBox(current_row, current_col);
         letterbox.classList.remove("blank");
         letterbox.classList.add("focus");
@@ -103,7 +108,7 @@ function onLetter(letter) {
 }
 
 function onBackspace() {
-    if (!keyboard_disabled && current_row < num_rows && current_col > 0) {
+    if (typingAllowed() && current_row < num_rows && current_col > 0) {
         let letterbox = getLetterBox(current_row, current_col - 1);
         letterbox.classList.remove("focus");
         letterbox.classList.add("blank");
@@ -113,12 +118,12 @@ function onBackspace() {
 }
 
 function onEnter() {
-    if (!keyboard_disabled && current_col === num_cols) {
-        keyboard_disabled = true;
+    if (typingAllowed() && current_col === num_cols) {
         let word = "";
         for (let j = 0; j < num_cols; ++j) {
             word += getLetterBox(current_row, j).innerHTML;
         }
+        waiting = true;
         ws.send(word);
     }
 }
@@ -131,11 +136,14 @@ async function onMessage(message) {
             sleep(250).then(() => letterbox.classList.remove("shake-horizontally"))
         }
         await sleep(250);
-        keyboard_disabled = false;
+        waiting = false;
         return;
     }
     if (message[0] === '!') {
-        answer = message.substring(1);
+        await sleep(300 * num_cols);
+        window.alert(`The answer was '${message.substring(1)}'`);
+        waiting = false;
+        game_over = true;
         return;
     }
     for (let j = 0; j < num_cols; ++j) {
@@ -165,11 +173,9 @@ async function onMessage(message) {
             sleep(400).then(() => letterbox.classList.remove("shake-vertically"));
             await sleep(100);
         }
-    } else if (current_row === num_rows - 1) {
-        window.alert(`The answer was '${answer}'`);
-    } else {
-        keyboard_disabled = false;
+        game_over = true;
     }
+    waiting = false;
     ++current_row;
     current_col = 0;
 }
@@ -177,7 +183,7 @@ async function onMessage(message) {
 function connect() {
     ws = new WebSocket(`ws://${location.hostname}:${location.port}/${mode}/${id}`);
     ws.onopen = () => {
-        keyboard_disabled = false;
+        connected = true;
     }
     ws.onmessage = async (event) => {
         await onMessage(event.data);
@@ -186,7 +192,7 @@ function connect() {
         ws.close();
     }
     ws.onclose = () => {
-        keyboard_disabled = true;
+        connected = false;
         setTimeout(connect, 1000);
     }
 }
