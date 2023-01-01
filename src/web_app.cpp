@@ -3,7 +3,7 @@
 #include <memory>
 #include <sstream>
 #include <unordered_map>
-#include <uWebSockets/App.h>
+#include <App.h>
 
 #include "players.h"
 
@@ -81,9 +81,10 @@ int main() {
             }
     }).listen(port, [](auto *listen_socket) {
         if (listen_socket) {
-            std::cout << "Listening on port " << port << std::endl;
+            std::cerr << "Listening on port " << port << std::endl;
         } else {
-            std::cout << "Failed to listen on port " << port << std::endl;
+            std::cerr << "Failed to listen on port " << port << std::endl;
+            exit(1);
         }
     }).run();
 }
