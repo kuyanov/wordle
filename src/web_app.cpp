@@ -1,7 +1,10 @@
 #include <algorithm>
+#include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <string>
 #include <unordered_map>
 #include <App.h>
 
