@@ -31,7 +31,7 @@ std::string ReadFile(const std::string &filename) {
 }
 
 int main() {
-    auto dict = ReadDictionary("dictionary.txt");
+    ReadDicts();
     std::unordered_map<std::string, GameData> games;
     uWS::App().get("/", [&](auto *res, auto *req) {
         res->writeHeader("Content-Type", "text/html")->end(ReadFile("static/index.html"));
@@ -47,9 +47,9 @@ int main() {
             .upgrade = [&](auto *res, auto *req, auto *context) {
                 std::unique_ptr<Host> host;
                 if (req->getParameter(0) == "random") {
-                    host = std::make_unique<HostRandom>(dict);
+                    host = std::make_unique<HostRandom>();
                 } else if (req->getParameter(0) == "hater") {
-                    host = std::make_unique<HostHater>(dict, 0.2);
+                    host = std::make_unique<HostHater>(0.2);
                 } else {
                     res->writeStatus("404 Not Found")->end();
                     return;
@@ -67,6 +67,7 @@ int main() {
             },
             .message = [&](auto *ws, std::string_view message, uWS::OpCode op_code) {
                 auto &[host, move] = *ws->getUserData()->game;
+                auto &dict = GetDictAll();
                 if (std::find(dict.begin(), dict.end(), message) == dict.end()) {
                     ws->send("", op_code);
                 } else if (move < max_moves) {

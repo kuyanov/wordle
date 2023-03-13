@@ -15,8 +15,7 @@ enum class Player {
     UNDEFINED
 };
 
-std::tuple<Player, int, std::string> Play(const std::vector<std::string> &dict, Host *host, Guesser *guesser,
-                                          bool print_game) {
+std::tuple<Player, int, std::string> Play(Host *host, Guesser *guesser, bool print_game) {
     std::vector<std::string> guesses, results;
     for (int move = 1; move <= max_moves; ++move) {
         std::string guess = guesser->MakeGuess();
@@ -42,22 +41,22 @@ std::tuple<Player, int, std::string> Play(const std::vector<std::string> &dict, 
 }
 
 int main() {
-    auto dict = ReadDictionary("dictionary.txt");
+    ReadDicts();
     std::cout << "host type (1 - fixed, 2 - random, 3 - stdio, 4 - hater): ";
     int host_type;
     std::cin >> host_type;
     std::unique_ptr<Host> host;
     if (host_type == 1) {
-        std::cout << "word id (0 ... " << dict.size() - 1 << "): ";
+        std::cout << "word id (0 ... " << GetDictAns().size() - 1 << "): ";
         size_t answer_id;
         std::cin >> answer_id;
-        host = std::make_unique<HostFixed>(dict, answer_id);
+        host = std::make_unique<HostFixed>(answer_id);
     } else if (host_type == 2) {
-        host = std::make_unique<HostRandom>(dict);
+        host = std::make_unique<HostRandom>();
     } else if (host_type == 3) {
-        host = std::make_unique<HostStdio>(dict);
+        host = std::make_unique<HostStdio>();
     } else if (host_type == 4) {
-        host = std::make_unique<HostHater>(dict, 0.1);
+        host = std::make_unique<HostHater>(0.2);
     } else {
         std::cout << "unknown type, exiting" << std::endl;
         return 1;
@@ -67,15 +66,15 @@ int main() {
     std::cin >> guesser_type;
     std::unique_ptr<Guesser> guesser;
     if (guesser_type == 1) {
-        guesser = std::make_unique<GuesserStdio>(dict);
+        guesser = std::make_unique<GuesserStdio>();
     } else if (guesser_type == 2) {
-        guesser = std::make_unique<GuesserHeuristic>(dict);
+        guesser = std::make_unique<GuesserHeuristic>();
     } else {
         std::cout << "unknown type, exiting" << std::endl;
         return 1;
     }
     bool print_game = host_type != 3 && guesser_type != 1;
-    auto [winner, move, answer] = Play(dict, host.get(), guesser.get(), print_game);
+    auto [winner, move, answer] = Play(host.get(), guesser.get(), print_game);
     if (winner == Player::GUESSER) {
         std::cout << "guesser won in " << move << " moves" << std::endl;
     } else if (winner == Player::HOST) {

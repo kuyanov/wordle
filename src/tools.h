@@ -7,17 +7,28 @@
 #include <string>
 #include <vector>
 
-inline std::vector<std::string> ReadDictionary(const std::string &filename) {
-    std::ifstream fin(filename);
-    std::vector<std::string> dict;
+std::vector<std::string> &GetDictAll() {
+    static std::vector<std::string> dict_all;
+    return dict_all;
+}
+
+std::vector<std::string> &GetDictAns() {
+    static std::vector<std::string> dict_ans;
+    return dict_ans;
+}
+
+inline void ReadDicts() {
+    std::ifstream fin_all("all.txt"), fin_ans("ans.txt");
     std::string word;
-    while (fin >> word) {
-        dict.push_back(word);
+    while (fin_all >> word) {
+        GetDictAll().push_back(word);
     }
-    if (dict.empty()) {
+    while (fin_ans >> word) {
+        GetDictAns().push_back(word);
+    }
+    if (GetDictAll().empty() || GetDictAns().empty()) {
         throw std::runtime_error("dictionary not found or empty");
     }
-    return dict;
 }
 
 inline std::string Compare(const std::string &guess, const std::string &answer) {

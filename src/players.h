@@ -11,12 +11,7 @@
 #include "tools.h"
 
 class Host {
-protected:
-    const std::vector<std::string> &dict;
-
 public:
-    explicit Host(const std::vector<std::string> &dict) : dict(dict) {}
-
     virtual std::string OnGuess(const std::string &) = 0;
 
     virtual std::string GetAnswer() = 0;
@@ -26,8 +21,6 @@ public:
 
 class HostStdio : public Host {
 public:
-    using Host::Host;
-
     std::string OnGuess(const std::string &guess) override {
         std::cout << guess << std::endl;
         while (true) {
@@ -49,6 +42,7 @@ public:
             std::cout << "enter the answer: ";
             std::string answer;
             std::cin >> answer;
+            auto &dict = GetDictAns();
             if (std::find(dict.begin(), dict.end(), answer) != dict.end()) {
                 return answer;
             }
@@ -65,14 +59,14 @@ class HostFixed : public Host {
     size_t answer_id;
 
 public:
-    explicit HostFixed(const std::vector<std::string> &dict, size_t answer_id) : Host(dict), answer_id(answer_id) {}
+    explicit HostFixed(size_t answer_id) : answer_id(answer_id) {}
 
     std::string OnGuess(const std::string &guess) override {
-        return Compare(guess, dict[answer_id]);
+        return Compare(guess, GetDictAns()[answer_id]);
     }
 
     std::string GetAnswer() override {
-        return dict[answer_id];
+        return GetDictAns()[answer_id];
     }
 };
 
@@ -80,17 +74,17 @@ class HostRandom : public Host {
     size_t answer_id;
 
 public:
-    explicit HostRandom(const std::vector<std::string> &dict) : Host(dict) {
+    HostRandom() {
         std::mt19937 rnd(clock());
-        answer_id = rnd() % dict.size();
+        answer_id = rnd() % GetDictAns().size();
     }
 
     std::string OnGuess(const std::string &guess) override {
-        return Compare(guess, dict[answer_id]);
+        return Compare(guess, GetDictAns()[answer_id]);
     }
 
     std::string GetAnswer() override {
-        return dict[answer_id];
+        return GetDictAns()[answer_id];
     }
 };
 
@@ -100,10 +94,8 @@ class HostHater : public Host {
     std::mt19937 rnd;
 
 public:
-    explicit HostHater(const std::vector<std::string> &dict, double randomness = 0) : Host(dict),
-                                                                                      randomness(randomness),
-                                                                                      rnd(clock()) {
-        possibilities = dict;
+    explicit HostHater(double randomness = 0) : randomness(randomness), rnd(clock()) {
+        possibilities = GetDictAns();
     }
 
     std::string OnGuess(const std::string &guess) override {
@@ -147,12 +139,7 @@ public:
 };
 
 class Guesser {
-protected:
-    const std::vector<std::string> &dict;
-
 public:
-    explicit Guesser(const std::vector<std::string> &dict) : dict(dict) {}
-
     virtual std::string MakeGuess() = 0;
 
     virtual void OnResult(const std::string &, const std::string &) = 0;
@@ -162,12 +149,11 @@ public:
 
 class GuesserStdio : public Guesser {
 public:
-    using Guesser::Guesser;
-
     std::string MakeGuess() override {
         while (true) {
             std::string guess;
             std::cin >> guess;
+            auto &dict = GetDictAll();
             if (std::find(dict.begin(), dict.end(), guess) != dict.end()) {
                 return guess;
             }
@@ -189,14 +175,14 @@ class GuesserHeuristic : public Guesser {
     std::vector<std::string> possibilities;
 
 public:
-    explicit GuesserHeuristic(const std::vector<std::string> &dict) : Guesser(dict) {
-        possibilities = dict;
+    GuesserHeuristic() {
+        possibilities = GetDictAns();
     }
 
     std::string MakeGuess() override {
-        size_t min_sum = dict.size() * dict.size();
+        size_t min_sum = GetDictAns().size() * GetDictAns().size();
         std::string best_guess;
-        for (const auto &guess: dict) {
+        for (const auto &guess: GetDictAll()) {
             std::unordered_map<std::string, size_t> cnt;
             for (const auto &answer: possibilities) {
                 if (guess != answer) {
