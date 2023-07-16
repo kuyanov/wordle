@@ -1,0 +1,9 @@
+heuristic guesser trained on all words uniformly & tested on all words:
+1: 1
+2: 82
+3: 2789
+4: 6767
+5: 2713
+6: 517
+lost: 103
+average: 4.02922

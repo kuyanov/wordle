@@ -1,0 +1,9 @@
+heuristic guesser trained on all words uniformly & tested on true wordle list:
+1: 0
+2: 25
+3: 750
+4: 1254
+5: 258
+6: 20
+lost: 2
+average: 3.77913

@@ -31,7 +31,7 @@ std::string ReadFile(const std::string &filename) {
 }
 
 int main() {
-    ReadDicts();
+    Init();
     std::unordered_map<std::string, GameData> games;
     uWS::App().get("/", [&](auto *res, auto *req) {
         res->writeHeader("Content-Type", "text/html")->end(ReadFile("static/index.html"));
@@ -47,9 +47,9 @@ int main() {
             .upgrade = [&](auto *res, auto *req, auto *context) {
                 std::unique_ptr<Host> host;
                 if (req->getParameter(0) == "random") {
-                    host = std::make_unique<HostRandom>();
+                    host = std::make_unique<HostRandom>(true);
                 } else if (req->getParameter(0) == "hater") {
-                    host = std::make_unique<HostHater>(0.2);
+                    host = std::make_unique<HostHater>(0.2, true);
                 } else {
                     res->writeStatus("404 Not Found")->end();
                     return;
@@ -67,18 +67,18 @@ int main() {
             },
             .message = [&](auto *ws, std::string_view message, uWS::OpCode op_code) {
                 auto &[host, move] = *ws->getUserData()->game;
-                auto &dict = GetDictAll();
-                if (std::find(dict.begin(), dict.end(), message) == dict.end()) {
+                size_t guess_id = std::find(all.begin(), all.end(), message) - all.begin();
+                if (guess_id == all.size()) {
                     ws->send("", op_code);
                 } else if (move < max_moves) {
-                    auto result = host->OnGuess(std::string(message));
-                    bool won = std::count(result.begin(), result.end(), 'g') == result.size();
-                    ws->send(result, op_code);
+                    u_char pat = host->OnGuess(guess_id);
+                    std::string pattern = DecodePattern(pat);
+                    ws->send(pattern, op_code);
                     ++move;
-                    if (move == max_moves && !won) {
-                        ws->send("!" + host->GetAnswer(), op_code);
+                    if (move == max_moves && !IsAllGreen(pat)) {
+                        ws->send("!" + all[host->GetAnswer()], op_code);
                     }
-                    if (move == max_moves || won) {
+                    if (move == max_moves || IsAllGreen(pat)) {
                         games.erase(ws->getUserData()->id);
                     }
                 }

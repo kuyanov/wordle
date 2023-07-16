@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -16,47 +15,58 @@ enum class Player {
 };
 
 std::tuple<Player, int, std::string> Play(Host *host, Guesser *guesser, bool print_game) {
-    std::vector<std::string> guesses, results;
+    std::vector<size_t> guesses;
+    std::vector<u_char> patterns;
     for (int move = 1; move <= max_moves; ++move) {
-        std::string guess = guesser->MakeGuess();
-        std::string result = host->OnGuess(guess);
+        size_t guess_id = guesser->MakeGuess();
+        u_char pat = host->OnGuess(guess_id);
+        guesser->OnResult(guess_id, pat);
+        guesses.push_back(guess_id);
+        patterns.push_back(pat);
+        std::string guess = all[guess_id], pattern = DecodePattern(pat);
         if (print_game) {
-            PrintColored(guess, result);
+            PrintColored(guess, pattern);
         }
-        guesser->OnResult(guess, result);
-        guesses.push_back(guess);
-        results.push_back(result);
-        if (std::count(result.begin(), result.end(), 'g') == result.size()) {
+        if (IsAllGreen(pat)) {
             return {Player::GUESSER, move, guess};
         }
     }
-    std::string answer = host->GetAnswer();
+    size_t answer_id = host->GetAnswer();
     for (int move = 1; move <= max_moves; ++move) {
-        if (Compare(guesses[move - 1], answer) != results[move - 1]) {
+        if (pattern_mat[guesses[move - 1]][answer_id] != patterns[move - 1]) {
             std::cerr << "host error on move " << move << std::endl;
-            return {Player::UNDEFINED, move, answer};
+            return {Player::UNDEFINED, move, all[answer_id]};
         }
     }
-    return {Player::HOST, 0, answer};
+    return {Player::HOST, 0, all[answer_id]};
 }
 
 int main() {
-    ReadDicts();
+    Init();
     std::cout << "host type (1 - fixed, 2 - random, 3 - stdio, 4 - hater): ";
     int host_type;
     std::cin >> host_type;
     std::unique_ptr<Host> host;
     if (host_type == 1) {
-        std::cout << "word id (0 ... " << GetDictAns().size() - 1 << "): ";
+        std::cout << "use true wordle list (0/1): ";
+        bool use_twl;
+        std::cin >> use_twl;
+        std::cout << "word id (0 ... " << (use_twl ? twl.size() - 1 : all.size() - 1) << "): ";
         size_t answer_id;
         std::cin >> answer_id;
-        host = std::make_unique<HostFixed>(answer_id);
+        host = std::make_unique<HostFixed>(answer_id, use_twl);
     } else if (host_type == 2) {
-        host = std::make_unique<HostRandom>();
+        std::cout << "use true wordle list (0/1): ";
+        bool use_twl;
+        std::cin >> use_twl;
+        host = std::make_unique<HostRandom>(use_twl);
     } else if (host_type == 3) {
         host = std::make_unique<HostStdio>();
     } else if (host_type == 4) {
-        host = std::make_unique<HostHater>(0.2);
+        std::cout << "use true wordle list (0/1): ";
+        bool use_twl;
+        std::cin >> use_twl;
+        host = std::make_unique<HostHater>(0.2, use_twl);
     } else {
         std::cout << "unknown type, exiting" << std::endl;
         return 1;
@@ -68,7 +78,13 @@ int main() {
     if (guesser_type == 1) {
         guesser = std::make_unique<GuesserStdio>();
     } else if (guesser_type == 2) {
-        guesser = std::make_unique<GuesserHeuristic>();
+        std::cout << "use true wordle list (0/1): ";
+        bool use_twl;
+        std::cin >> use_twl;
+        std::cout << "use frequency priors (0/1): ";
+        bool use_priors;
+        std::cin >> use_priors;
+        guesser = std::make_unique<GuesserHeuristic>(use_twl, use_priors);
     } else {
         std::cout << "unknown type, exiting" << std::endl;
         return 1;

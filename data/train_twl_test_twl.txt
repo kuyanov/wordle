@@ -1,0 +1,9 @@
+heuristic guesser trained on true wordle list & tested on true wordle list:
+1: 0
+2: 86
+3: 1260
+4: 840
+5: 115
+6: 8
+lost: 0
+average: 3.43655

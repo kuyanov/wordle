@@ -5,46 +5,46 @@
 #include <iostream>
 #include <random>
 #include <regex>
-#include <unordered_map>
 #include <vector>
 
+#include "decision_tree.h"
 #include "tools.h"
 
 class Host {
 public:
-    virtual std::string OnGuess(const std::string &) = 0;
+    virtual u_char OnGuess(size_t) = 0;
 
-    virtual std::string GetAnswer() = 0;
+    virtual size_t GetAnswer() = 0;
 
     virtual ~Host() = default;
 };
 
 class HostStdio : public Host {
 public:
-    std::string OnGuess(const std::string &guess) override {
-        std::cout << guess << std::endl;
+    u_char OnGuess(size_t guess_id) override {
+        std::cout << all[guess_id] << std::endl;
         while (true) {
-            std::string result;
-            std::cin >> result;
-            if (result.size() == guess.size() && std::regex_match(result, std::regex("[\\.|y|g]+"))) {
-                return result;
+            std::string pattern;
+            std::cin >> pattern;
+            if (pattern.size() == 5 && std::regex_match(pattern, std::regex("[\\.|y|g]+"))) {
+                return EncodePattern(pattern);
             }
             std::cout << "\x1b[1A";
-            for (size_t i = 0; i < result.size(); ++i) {
+            for (size_t i = 0; i < pattern.size(); ++i) {
                 std::cout << ' ';
             }
             std::cout << '\r';
         }
     }
 
-    std::string GetAnswer() override {
+    size_t GetAnswer() override {
         while (true) {
             std::cout << "enter the answer: ";
             std::string answer;
             std::cin >> answer;
-            auto &dict = GetDictAns();
-            if (std::find(dict.begin(), dict.end(), answer) != dict.end()) {
-                return answer;
+            size_t answer_id = std::find(all.begin(), all.end(), answer) - all.begin();
+            if (answer_id != all.size()) {
+                return answer_id;
             }
             std::cout << "\x1b[1A";
             for (size_t i = 0; i < answer.size() + 18; ++i) {
@@ -59,14 +59,15 @@ class HostFixed : public Host {
     size_t answer_id;
 
 public:
-    explicit HostFixed(size_t answer_id) : answer_id(answer_id) {}
+    HostFixed(size_t answer_id, bool use_twl) :
+            answer_id(use_twl ? twl2all_map[answer_id] : answer_id) {}
 
-    std::string OnGuess(const std::string &guess) override {
-        return Compare(guess, GetDictAns()[answer_id]);
+    u_char OnGuess(size_t guess_id) override {
+        return pattern_mat[guess_id][answer_id];
     }
 
-    std::string GetAnswer() override {
-        return GetDictAns()[answer_id];
+    size_t GetAnswer() override {
+        return answer_id;
     }
 };
 
@@ -74,88 +75,90 @@ class HostRandom : public Host {
     size_t answer_id;
 
 public:
-    HostRandom() {
+    explicit HostRandom(bool use_twl) {
         std::mt19937 rnd(clock());
-        answer_id = rnd() % GetDictAns().size();
+        answer_id = use_twl ? twl2all_map[rnd() % twl.size()] : rnd() % all.size();
     }
 
-    std::string OnGuess(const std::string &guess) override {
-        return Compare(guess, GetDictAns()[answer_id]);
+    u_char OnGuess(size_t guess_id) override {
+        return pattern_mat[guess_id][answer_id];
     }
 
-    std::string GetAnswer() override {
-        return GetDictAns()[answer_id];
+    size_t GetAnswer() override {
+        return answer_id;
     }
 };
 
 class HostHater : public Host {
-    std::vector<std::string> possibilities;
+    std::vector<size_t> possible_words;
     double randomness;
     std::mt19937 rnd;
 
 public:
-    explicit HostHater(double randomness = 0) : randomness(randomness), rnd(clock()) {
-        possibilities = GetDictAns();
+    explicit HostHater(double randomness, bool use_twl) : randomness(randomness), rnd(clock()) {
+        if (use_twl) {
+            possible_words = twl2all_map;
+        } else {
+            possible_words.resize(all.size());
+            for (size_t i = 0; i < possible_words.size(); ++i) possible_words[i] = i;
+        }
     }
 
-    std::string OnGuess(const std::string &guess) override {
-        std::unordered_map<std::string, size_t> cnt;
-        for (const auto &answer: possibilities) {
-            if (answer == guess) {
-                continue;
+    u_char OnGuess(size_t guess_id) override {
+        std::vector<size_t> cnt(243);
+        if (possible_words.size() == 1 && possible_words.front() == guess_id) {
+            return pattern_mat[guess_id][guess_id];
+        }
+        for (size_t answer_id: possible_words) {
+            if (answer_id != guess_id) {
+                cnt[pattern_mat[guess_id][answer_id]]++;
             }
-            auto result = Compare(guess, answer);
-            cnt[result]++;
         }
-        if (cnt.empty()) {
-            std::string result(guess.size(), 'g');
-            return result;
+        std::vector<std::pair<size_t, u_char>> options;
+        for (size_t i = 0; i < cnt.size(); ++i) {
+            if (cnt[i] != 0) {
+                options.emplace_back(cnt[i], i);
+            }
         }
-        std::vector<std::pair<std::string, size_t>> options(cnt.begin(), cnt.end());
-        std::sort(options.begin(), options.end(), [&](const auto &p1, const auto &p2) {
-            return p1.second < p2.second;
-        });
-        size_t max_value = options.back().second;
+        std::sort(options.begin(), options.end());
+        size_t max_value = options.back().first;
         size_t threshold = max_value * (1 - randomness);
         size_t l = std::lower_bound(options.begin(), options.end(),
-                                    std::pair("", threshold),
-                                    [&](const auto &p1, const auto &p2) {
-                                        return p1.second < p2.second;
-                                    }) - options.begin();
-        auto result = options[l + rnd() % (options.size() - l)].first;
-        std::vector<std::string> new_possibilities;
-        for (const auto &answer: possibilities) {
-            if (Compare(guess, answer) == result) {
-                new_possibilities.push_back(answer);
+                                    std::pair(threshold, u_char(0))) - options.begin();
+        u_char pat = options[l + rnd() % (options.size() - l)].second;
+        std::vector<size_t> new_possible_words;
+        for (size_t answer_id: possible_words) {
+            if (pattern_mat[guess_id][answer_id] == pat) {
+                new_possible_words.push_back(answer_id);
             }
         }
-        possibilities = new_possibilities;
-        return result;
+        possible_words = new_possible_words;
+        return pat;
     }
 
-    std::string GetAnswer() override {
-        return possibilities[0];
+    size_t GetAnswer() override {
+        return possible_words.front();
     }
 };
 
 class Guesser {
 public:
-    virtual std::string MakeGuess() = 0;
+    virtual size_t MakeGuess() = 0;
 
-    virtual void OnResult(const std::string &, const std::string &) = 0;
+    virtual void OnResult(size_t, u_char) = 0;
 
     virtual ~Guesser() = default;
 };
 
 class GuesserStdio : public Guesser {
 public:
-    std::string MakeGuess() override {
+    size_t MakeGuess() override {
         while (true) {
             std::string guess;
             std::cin >> guess;
-            auto &dict = GetDictAll();
-            if (std::find(dict.begin(), dict.end(), guess) != dict.end()) {
-                return guess;
+            size_t guess_id = std::find(all.begin(), all.end(), guess) - all.begin();
+            if (guess_id != all.size()) {
+                return guess_id;
             }
             std::cout << "\x1b[1A";
             for (size_t i = 0; i < guess.size(); ++i) {
@@ -165,49 +168,36 @@ public:
         }
     }
 
-    void OnResult(const std::string &guess, const std::string &result) override {
+    void OnResult(size_t guess_id, u_char pat) override {
         std::cout << "\x1b[1A";
-        PrintColored(guess, result);
+        PrintColored(all[guess_id], DecodePattern(pat));
     }
 };
 
 class GuesserHeuristic : public Guesser {
-    std::vector<std::string> possibilities;
+    Node *cur;
 
 public:
-    GuesserHeuristic() {
-        possibilities = GetDictAns();
-    }
-
-    std::string MakeGuess() override {
-        size_t min_sum = GetDictAns().size() * GetDictAns().size();
-        std::string best_guess;
-        for (const auto &guess: GetDictAll()) {
-            std::unordered_map<std::string, size_t> cnt;
-            for (const auto &answer: possibilities) {
-                if (guess != answer) {
-                    cnt[Compare(guess, answer)]++;
-                }
-            }
-            size_t sum = 0;
-            for (const auto &[result, value]: cnt) {
-                sum += value * value;
-            }
-            if (sum < min_sum) {
-                min_sum = sum;
-                best_guess = guess;
+    GuesserHeuristic(bool use_twl, bool use_priors) {
+        if (!root) {
+            root = std::make_unique<Node>();
+            std::cerr << "building decision tree" << std::endl;
+            if (use_twl) {
+                BuildDecisionTree(root.get(), twl2all_map, use_priors);
+            } else {
+                std::vector<size_t> possible_words(all.size());
+                for (size_t i = 0; i < possible_words.size(); ++i) possible_words[i] = i;
+                BuildDecisionTree(root.get(), possible_words, use_priors);
             }
         }
-        return best_guess;
+        cur = root.get();
     }
 
-    void OnResult(const std::string &guess, const std::string &result) override {
-        std::vector<std::string> new_possibilities;
-        for (const auto &answer: possibilities) {
-            if (Compare(guess, answer) == result) {
-                new_possibilities.push_back(answer);
-            }
-        }
-        possibilities = new_possibilities;
+    size_t MakeGuess() override {
+        return cur->guess_id;
+    }
+
+    void OnResult(size_t guess_id, u_char pat) override {
+        cur = cur->go[pat].get();
     }
 };
