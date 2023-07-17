@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <ctime>
 #include <iostream>
+#include <memory>
 #include <random>
 #include <regex>
 #include <vector>
@@ -63,7 +64,7 @@ public:
             answer_id(use_twl ? twl2all_map[answer_id] : answer_id) {}
 
     u_char OnGuess(size_t guess_id) override {
-        return pattern_mat[guess_id][answer_id];
+        return GetPattern(guess_id, answer_id);
     }
 
     size_t GetAnswer() override {
@@ -81,7 +82,7 @@ public:
     }
 
     u_char OnGuess(size_t guess_id) override {
-        return pattern_mat[guess_id][answer_id];
+        return GetPattern(guess_id, answer_id);
     }
 
     size_t GetAnswer() override {
@@ -107,11 +108,11 @@ public:
     u_char OnGuess(size_t guess_id) override {
         std::vector<size_t> cnt(243);
         if (possible_words.size() == 1 && possible_words.front() == guess_id) {
-            return pattern_mat[guess_id][guess_id];
+            return GetPattern(guess_id, guess_id);
         }
         for (size_t answer_id: possible_words) {
             if (answer_id != guess_id) {
-                cnt[pattern_mat[guess_id][answer_id]]++;
+                cnt[GetPattern(guess_id, answer_id)]++;
             }
         }
         std::vector<std::pair<size_t, u_char>> options;
@@ -128,7 +129,7 @@ public:
         u_char pat = options[l + rnd() % (options.size() - l)].second;
         std::vector<size_t> new_possible_words;
         for (size_t answer_id: possible_words) {
-            if (pattern_mat[guess_id][answer_id] == pat) {
+            if (GetPattern(guess_id, answer_id) == pat) {
                 new_possible_words.push_back(answer_id);
             }
         }
@@ -175,22 +176,31 @@ public:
 };
 
 class GuesserHeuristic : public Guesser {
-    Node *cur;
+    std::shared_ptr<Node> cur;
 
 public:
     GuesserHeuristic(bool use_twl, bool use_priors) {
+        std::string key = "heuristic_";
+        key += use_twl ? "twl_" : "all_";
+        key += use_priors ? "priors" : "uniform";
+        auto root = GetDecisionTree(key);
         if (!root) {
-            root = std::make_unique<Node>();
-            std::cerr << "building decision tree" << std::endl;
+            std::cout << "computing pattern matrix" << std::endl;
+            ComputePatternMatrix();
+            if (use_priors) {
+                ComputeSigmoidPriors();
+            }
+            std::cout << "building decision tree" << std::endl;
             if (use_twl) {
-                BuildDecisionTree(root.get(), twl2all_map, use_priors);
+                BuildDecisionTreeHeuristic(root, twl2all_map, use_priors);
             } else {
                 std::vector<size_t> possible_words(all.size());
                 for (size_t i = 0; i < possible_words.size(); ++i) possible_words[i] = i;
-                BuildDecisionTree(root.get(), possible_words, use_priors);
+                BuildDecisionTreeHeuristic(root, possible_words, use_priors);
             }
+            SaveDecisionTree(key, root);
         }
-        cur = root.get();
+        cur = root;
     }
 
     size_t MakeGuess() override {
@@ -198,6 +208,10 @@ public:
     }
 
     void OnResult(size_t guess_id, u_char pat) override {
-        cur = cur->go[pat].get();
+        cur = cur->go[pat];
+    }
+
+    [[nodiscard]] std::shared_ptr<Node> CurrentNode() const {
+        return cur;
     }
 };

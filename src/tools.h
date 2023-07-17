@@ -35,7 +35,10 @@ inline void ReadWords() {
     }
 }
 
-inline void ComputeSigmoidPriors(double width, int n_common) {
+inline void ComputeSigmoidPriors(double width = 20, int n_common = 3000) {
+    if (!priors.empty()) {
+        return;
+    }
     size_t n = all.size();
     priors.resize(n);
     for (int id = 0; id < n; ++id) {
@@ -44,7 +47,7 @@ inline void ComputeSigmoidPriors(double width, int n_common) {
     }
 }
 
-inline u_char GetPattern(const std::string &guess, const std::string &answer) {
+inline u_char ComputePattern(const std::string &guess, const std::string &answer) {
     u_char pat = 0;
     std::array<int, 26> cnt{};
     std::array<u_char, 5> pw3 = {81, 27, 9, 3, 1};
@@ -86,18 +89,20 @@ inline bool IsAllGreen(u_char pat) {
 }
 
 inline void ComputePatternMatrix() {
+    if (!pattern_mat.empty()) {
+        return;
+    }
     pattern_mat.resize(all.size(), std::vector<u_char>(all.size()));
     for (size_t i = 0; i < all.size(); ++i) {
         for (size_t j = 0; j < all.size(); ++j) {
-            pattern_mat[i][j] = GetPattern(all[i], all[j]);
+            pattern_mat[i][j] = ComputePattern(all[i], all[j]);
         }
     }
 }
 
-inline void Init() {
-    ReadWords();
-    ComputeSigmoidPriors(20, 3000);
-    ComputePatternMatrix();
+inline u_char GetPattern(size_t guess_id, size_t answer_id) {
+    return !pattern_mat.empty() ? pattern_mat[guess_id][answer_id]
+                                : ComputePattern(all[guess_id], all[answer_id]);
 }
 
 inline void PrintColored(const std::string &guess, const std::string &pattern) {

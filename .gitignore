@@ -34,3 +34,6 @@
 # Build files
 build
 cmake-build-*
+
+# Computation results
+trees

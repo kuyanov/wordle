@@ -42,7 +42,7 @@ std::tuple<Player, int, std::string> Play(Host *host, Guesser *guesser, bool pri
 }
 
 int main() {
-    Init();
+    ReadWords();
     std::cout << "host type (1 - fixed, 2 - random, 3 - stdio, 4 - hater): ";
     int host_type;
     std::cin >> host_type;

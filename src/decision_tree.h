@@ -1,7 +1,11 @@
 #pragma once
 
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
 #include <memory>
+#include <sstream>
+#include <unordered_map>
 #include <vector>
 
 #include "tools.h"
@@ -9,18 +13,80 @@
 const u_char N_PATTERNS = 243;
 
 struct Node {
-    double entropy = 0;
     size_t guess_id = -1;
-    std::vector<std::unique_ptr<Node>> go;
+    double entropy = 0;
+    std::vector<std::shared_ptr<Node>> go;
+
+    Node() {
+        go.resize(N_PATTERNS);
+    }
 };
 
-std::unique_ptr<Node> root;
+inline void DumpDecisionTree(const std::shared_ptr<Node> &v, std::stringstream &buf) {
+    if (!v) {
+        size_t value = -1;
+        buf.write(reinterpret_cast<const char *>(&value), sizeof(value));
+        return;
+    }
+    buf.write(reinterpret_cast<const char *>(&v->guess_id), sizeof(v->guess_id));
+    buf.write(reinterpret_cast<const char *>(&v->entropy), sizeof(v->entropy));
+    for (u_char pat = 0; pat < N_PATTERNS; ++pat) {
+        DumpDecisionTree(v->go[pat], buf);
+    }
+}
+
+inline void LoadDecisionTree(std::shared_ptr<Node> &v, std::stringstream &buf) {
+    size_t value;
+    buf.read(reinterpret_cast<char *>(&value), sizeof(value));
+    if (value == -1) {
+        return;
+    }
+    v = std::make_shared<Node>();
+    v->guess_id = value;
+    buf.read(reinterpret_cast<char *>(&v->entropy), sizeof(v->entropy));
+    for (u_char pat = 0; pat < N_PATTERNS; ++pat) {
+        LoadDecisionTree(v->go[pat], buf);
+    }
+}
+
+static std::unordered_map<std::string, std::shared_ptr<Node>> tree_registry;
+
+inline std::shared_ptr<Node> GetDecisionTree(const std::string &key) {
+    auto &root = tree_registry[key];
+    if (root) {
+        return root;
+    }
+    auto path = std::filesystem::path("trees") / key;
+    if (std::filesystem::exists(path)) {
+        std::cout << "reading " << path.string() << std::endl;
+        std::ifstream fin(path.string());
+        std::stringstream buf;
+        buf << fin.rdbuf();
+        LoadDecisionTree(root, buf);
+    }
+    return root;
+}
+
+inline void SaveDecisionTree(const std::string &key, const std::shared_ptr<Node> &root) {
+    tree_registry[key] = root;
+    auto path = std::filesystem::path("trees") / key;
+    if (!std::filesystem::exists(path)) {
+        std::cout << "saving to " << path.string() << std::endl;
+        std::filesystem::create_directories(path.parent_path());
+        std::ofstream fout(path.string());
+        std::stringstream buf;
+        DumpDecisionTree(root, buf);
+        fout << buf.str();
+    }
+}
 
 inline double GetApproxScore(double entropy) {
     return sqrt(1 + entropy);
 }
 
-inline void BuildDecisionTree(Node *v, const std::vector<size_t> &possible_words, bool use_priors) {
+inline void BuildDecisionTreeHeuristic(std::shared_ptr<Node> &v, const std::vector<size_t> &possible_words,
+                                       bool use_priors) {
+    v = std::make_shared<Node>();
     double min_score = 10;
     if (!use_priors) {
         v->entropy = log2(possible_words.size());
@@ -28,7 +94,7 @@ inline void BuildDecisionTree(Node *v, const std::vector<size_t> &possible_words
         for (size_t guess_id = 0; guess_id < all.size(); ++guess_id) {
             std::fill(cnt.begin(), cnt.end(), 0);
             for (size_t answer_id: possible_words) {
-                cnt[pattern_mat[guess_id][answer_id]]++;
+                cnt[GetPattern(guess_id, answer_id)]++;
             }
             double score = 0;
             for (u_char pat = 0; pat < N_PATTERNS; ++pat) {
@@ -55,11 +121,11 @@ inline void BuildDecisionTree(Node *v, const std::vector<size_t> &possible_words
         for (size_t guess_id = 0; guess_id < all.size(); ++guess_id) {
             std::fill(sum.begin(), sum.end(), 0);
             for (size_t answer_id: possible_words) {
-                sum[pattern_mat[guess_id][answer_id]] += priors[answer_id];
+                sum[GetPattern(guess_id, answer_id)] += priors[answer_id];
             }
             std::fill(entropies.begin(), entropies.end(), 0);
             for (size_t answer_id: possible_words) {
-                u_char pat = pattern_mat[guess_id][answer_id];
+                u_char pat = GetPattern(guess_id, answer_id);
                 double p = priors[answer_id] / sum[pat];
                 entropies[pat] += p * -log2(p);
             }
@@ -83,14 +149,12 @@ inline void BuildDecisionTree(Node *v, const std::vector<size_t> &possible_words
     std::vector<std::vector<size_t>> partition(N_PATTERNS);
     for (size_t answer_id: possible_words) {
         if (answer_id != v->guess_id) {
-            partition[pattern_mat[v->guess_id][answer_id]].push_back(answer_id);
+            partition[GetPattern(v->guess_id, answer_id)].push_back(answer_id);
         }
     }
-    v->go.resize(partition.size());
     for (size_t i = 0; i < partition.size(); ++i) {
         if (!partition[i].empty()) {
-            v->go[i] = std::make_unique<Node>();
-            BuildDecisionTree(v->go[i].get(), partition[i], use_priors);
+            BuildDecisionTreeHeuristic(v->go[i], partition[i], use_priors);
         }
     }
 }

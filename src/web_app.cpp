@@ -31,7 +31,7 @@ std::string ReadFile(const std::string &filename) {
 }
 
 int main() {
-    Init();
+    ReadWords();
     std::unordered_map<std::string, GameData> games;
     uWS::App().get("/", [&](auto *res, auto *req) {
         res->writeHeader("Content-Type", "text/html")->end(ReadFile("static/index.html"));
