@@ -10,9 +10,9 @@ int main() {
     ReadWords();
     ComputePatterns();
     std::cout << "number of top guesses to consider: ";
-    size_t k;
-    std::cin >> k;
-    DecisionTree tree = DecisionTreeGreedy(k);
+    size_t cnt_top;
+    std::cin >> cnt_top;
+    DecisionTree tree = DecisionTreeBruteForce(cnt_top);
     std::vector<int> stats(MAX_MOVES);
     int cnt_lost = 0;
     for (size_t answer_id = 0; answer_id < answers.size(); ++answer_id) {
@@ -44,5 +44,5 @@ int main() {
     std::cout << "mean: " << mean << std::endl;
 
     std::filesystem::create_directory("trees");
-    tree.Write("trees/greedy_top" + std::to_string(k));
+    tree.Write("trees/brute_force_top" + std::to_string(cnt_top));
 }

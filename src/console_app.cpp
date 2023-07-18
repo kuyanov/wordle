@@ -69,11 +69,11 @@ int main() {
     if (guesser_type == 1) {
         guesser = std::make_unique<GuesserStdio>();
     } else if (guesser_type == 2) {
-        std::cout << "filename (default greedy_top10): ";
+        std::cout << "filename (default brute_force_top10): ";
         std::string filename;
         getchar();
         getline(std::cin, filename);
-        if (filename.empty()) filename = "greedy_top10";
+        if (filename.empty()) filename = "brute_force_top10";
         DecisionTree tree;
         tree.Read("trees/" + filename);
         guesser = std::make_unique<GuesserDecisionTree>(tree);

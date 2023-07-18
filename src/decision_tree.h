@@ -74,8 +74,8 @@ double ApproxScore(double entropy) {
     return sqrt(1 + entropy);
 }
 
-std::pair<std::shared_ptr<Node>, double> GreedySearch(
-        const std::vector<size_t> &possible_answers, size_t k) {
+std::pair<std::shared_ptr<Node>, double> BruteForceSearch(
+        const std::vector<size_t> &possible_answers, size_t cnt_top) {
     auto v = std::make_shared<Node>();
     if (possible_answers.size() == 1) {
         v->guess_id = answer2guess[possible_answers[0]];
@@ -106,7 +106,7 @@ std::pair<std::shared_ptr<Node>, double> GreedySearch(
     }
     std::sort(options.begin(), options.end());
     double min_score = 10;
-    for (size_t i = 0; i < k; ++i) {
+    for (size_t i = 0; i < cnt_top; ++i) {
         size_t guess_id = options[i].second;
         std::vector<std::vector<size_t>> partition(N_PATTERNS);
         for (size_t answer_id: possible_answers) {
@@ -135,7 +135,7 @@ std::pair<std::shared_ptr<Node>, double> GreedySearch(
                 cur_score += lb;
                 break;
             }
-            auto [u, score] = GreedySearch(partition[pat], k);
+            auto [u, score] = BruteForceSearch(partition[pat], cnt_top);
             go[pat] = u;
             cur_score += score * (double) partition[pat].size() / (double) possible_answers.size();
             lb -= (2 * (double) partition[pat].size() - 1) / (double) possible_answers.size();
@@ -149,10 +149,10 @@ std::pair<std::shared_ptr<Node>, double> GreedySearch(
     return {v, min_score};
 }
 
-DecisionTree DecisionTreeGreedy(size_t k) {
+DecisionTree DecisionTreeBruteForce(size_t cnt_top) {
     std::vector<size_t> possible_answers(answers.size());
     for (size_t answer_id = 0; answer_id < answers.size(); ++answer_id) {
         possible_answers[answer_id] = answer_id;
     }
-    return DecisionTree(GreedySearch(possible_answers, k).first);
+    return DecisionTree(BruteForceSearch(possible_answers, cnt_top).first);
 }

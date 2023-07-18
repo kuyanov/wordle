@@ -6,7 +6,7 @@ set(CMAKE_CXX_FLAGS_ASAN "-g -fsanitize=address,undefined")
 
 include(cmake/uWebSockets.cmake)
 
-add_executable(CalcGreedy src/calc_greedy.cpp)
+add_executable(CalcBruteForce src/calc_brute_force.cpp)
 
 add_executable(ConsoleApp src/console_app.cpp)
 
