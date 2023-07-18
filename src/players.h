@@ -6,10 +6,11 @@
 #include <memory>
 #include <random>
 #include <regex>
+#include <string>
 #include <vector>
 
+#include "common.h"
 #include "decision_tree.h"
-#include "tools.h"
 
 class Host {
 public:
@@ -23,7 +24,7 @@ public:
 class HostStdio : public Host {
 public:
     u_char OnGuess(size_t guess_id) override {
-        std::cout << all[guess_id] << std::endl;
+        std::cout << guesses[guess_id] << std::endl;
         while (true) {
             std::string pattern;
             std::cin >> pattern;
@@ -43,8 +44,8 @@ public:
             std::cout << "enter the answer: ";
             std::string answer;
             std::cin >> answer;
-            size_t answer_id = std::find(all.begin(), all.end(), answer) - all.begin();
-            if (answer_id != all.size()) {
+            size_t answer_id = std::find(answers.begin(), answers.end(), answer) - answers.begin();
+            if (answer_id != answers.size()) {
                 return answer_id;
             }
             std::cout << "\x1b[1A";
@@ -60,8 +61,7 @@ class HostFixed : public Host {
     size_t answer_id;
 
 public:
-    HostFixed(size_t answer_id, bool use_twl) :
-            answer_id(use_twl ? twl2all_map[answer_id] : answer_id) {}
+    explicit HostFixed(size_t answer_id) : answer_id(answer_id) {}
 
     u_char OnGuess(size_t guess_id) override {
         return GetPattern(guess_id, answer_id);
@@ -76,9 +76,9 @@ class HostRandom : public Host {
     size_t answer_id;
 
 public:
-    explicit HostRandom(bool use_twl) {
+    HostRandom() {
         std::mt19937 rnd(clock());
-        answer_id = use_twl ? twl2all_map[rnd() % twl.size()] : rnd() % all.size();
+        answer_id = rnd() % answers.size();
     }
 
     u_char OnGuess(size_t guess_id) override {
@@ -91,34 +91,32 @@ public:
 };
 
 class HostHater : public Host {
-    std::vector<size_t> possible_words;
+    std::vector<size_t> possible_answers;
     double randomness;
     std::mt19937 rnd;
 
 public:
-    explicit HostHater(double randomness, bool use_twl) : randomness(randomness), rnd(clock()) {
-        if (use_twl) {
-            possible_words = twl2all_map;
-        } else {
-            possible_words.resize(all.size());
-            for (size_t i = 0; i < possible_words.size(); ++i) possible_words[i] = i;
+    explicit HostHater(double randomness) : randomness(randomness), rnd(clock()) {
+        possible_answers.resize(answers.size());
+        for (size_t answer_id = 0; answer_id < answers.size(); ++answer_id) {
+            possible_answers[answer_id] = answer_id;
         }
     }
 
     u_char OnGuess(size_t guess_id) override {
-        std::vector<size_t> cnt(243);
-        if (possible_words.size() == 1 && possible_words.front() == guess_id) {
-            return GetPattern(guess_id, guess_id);
+        if (possible_answers.size() == 1 && guess_id == answer2guess[possible_answers[0]]) {
+            return WIN_PAT;
         }
-        for (size_t answer_id: possible_words) {
-            if (answer_id != guess_id) {
+        std::vector<size_t> cnt(N_PATTERNS);
+        for (size_t answer_id: possible_answers) {
+            if (guess_id != answer2guess[answer_id]) {
                 cnt[GetPattern(guess_id, answer_id)]++;
             }
         }
         std::vector<std::pair<size_t, u_char>> options;
-        for (size_t i = 0; i < cnt.size(); ++i) {
-            if (cnt[i] != 0) {
-                options.emplace_back(cnt[i], i);
+        for (u_char pat = 0; pat < N_PATTERNS; ++pat) {
+            if (cnt[pat] != 0) {
+                options.emplace_back(cnt[pat], pat);
             }
         }
         std::sort(options.begin(), options.end());
@@ -127,18 +125,18 @@ public:
         size_t l = std::lower_bound(options.begin(), options.end(),
                                     std::pair(threshold, u_char(0))) - options.begin();
         u_char pat = options[l + rnd() % (options.size() - l)].second;
-        std::vector<size_t> new_possible_words;
-        for (size_t answer_id: possible_words) {
+        std::vector<size_t> new_possible_answers;
+        for (size_t answer_id: possible_answers) {
             if (GetPattern(guess_id, answer_id) == pat) {
-                new_possible_words.push_back(answer_id);
+                new_possible_answers.push_back(answer_id);
             }
         }
-        possible_words = new_possible_words;
+        possible_answers = new_possible_answers;
         return pat;
     }
 
     size_t GetAnswer() override {
-        return possible_words.front();
+        return possible_answers[0];
     }
 };
 
@@ -146,19 +144,21 @@ class Guesser {
 public:
     virtual size_t MakeGuess() = 0;
 
-    virtual void OnResult(size_t, u_char) = 0;
+    virtual void OnResult(u_char) = 0;
 
     virtual ~Guesser() = default;
 };
 
 class GuesserStdio : public Guesser {
+    size_t guess_id;
+
 public:
     size_t MakeGuess() override {
         while (true) {
             std::string guess;
             std::cin >> guess;
-            size_t guess_id = std::find(all.begin(), all.end(), guess) - all.begin();
-            if (guess_id != all.size()) {
+            guess_id = std::find(guesses.begin(), guesses.end(), guess) - guesses.begin();
+            if (guess_id != guesses.size()) {
                 return guess_id;
             }
             std::cout << "\x1b[1A";
@@ -169,49 +169,23 @@ public:
         }
     }
 
-    void OnResult(size_t guess_id, u_char pat) override {
+    void OnResult(u_char pat) override {
         std::cout << "\x1b[1A";
-        PrintColored(all[guess_id], DecodePattern(pat));
+        PrintColored(guesses[guess_id], DecodePattern(pat));
     }
 };
 
-class GuesserHeuristic : public Guesser {
+class GuesserDecisionTree : public Guesser {
     std::shared_ptr<Node> cur;
 
 public:
-    GuesserHeuristic(bool use_twl, bool use_priors) {
-        std::string key = "heuristic_";
-        key += use_twl ? "twl_" : "all_";
-        key += use_priors ? "priors" : "uniform";
-        auto root = GetDecisionTree(key);
-        if (!root) {
-            std::cout << "computing pattern matrix" << std::endl;
-            ComputePatternMatrix();
-            if (use_priors) {
-                ComputeSigmoidPriors();
-            }
-            std::cout << "building decision tree" << std::endl;
-            if (use_twl) {
-                BuildDecisionTreeHeuristic(root, twl2all_map, use_priors);
-            } else {
-                std::vector<size_t> possible_words(all.size());
-                for (size_t i = 0; i < possible_words.size(); ++i) possible_words[i] = i;
-                BuildDecisionTreeHeuristic(root, possible_words, use_priors);
-            }
-            SaveDecisionTree(key, root);
-        }
-        cur = root;
-    }
+    explicit GuesserDecisionTree(const DecisionTree &tree) : cur(tree.Get()) {}
 
     size_t MakeGuess() override {
         return cur->guess_id;
     }
 
-    void OnResult(size_t guess_id, u_char pat) override {
+    void OnResult(u_char pat) override {
         cur = cur->go[pat];
-    }
-
-    [[nodiscard]] std::shared_ptr<Node> CurrentNode() const {
-        return cur;
     }
 };

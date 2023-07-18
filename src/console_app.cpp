@@ -6,7 +6,7 @@
 
 #include "players.h"
 
-const int max_moves = 6;
+const int MAX_MOVES = 6;
 
 enum class Player {
     HOST,
@@ -15,30 +15,30 @@ enum class Player {
 };
 
 std::tuple<Player, int, std::string> Play(Host *host, Guesser *guesser, bool print_game) {
-    std::vector<size_t> guesses;
-    std::vector<u_char> patterns;
-    for (int move = 1; move <= max_moves; ++move) {
+    std::vector<size_t> game_guesses;
+    std::vector<u_char> game_patterns;
+    for (int i = 0; i < MAX_MOVES; ++i) {
         size_t guess_id = guesser->MakeGuess();
         u_char pat = host->OnGuess(guess_id);
-        guesser->OnResult(guess_id, pat);
-        guesses.push_back(guess_id);
-        patterns.push_back(pat);
-        std::string guess = all[guess_id], pattern = DecodePattern(pat);
+        guesser->OnResult(pat);
+        game_guesses.push_back(guess_id);
+        game_patterns.push_back(pat);
+        std::string guess = guesses[guess_id], pattern = DecodePattern(pat);
         if (print_game) {
             PrintColored(guess, pattern);
         }
-        if (IsAllGreen(pat)) {
-            return {Player::GUESSER, move, guess};
+        if (pat == WIN_PAT) {
+            return {Player::GUESSER, i + 1, guess};
         }
     }
     size_t answer_id = host->GetAnswer();
-    for (int move = 1; move <= max_moves; ++move) {
-        if (pattern_mat[guesses[move - 1]][answer_id] != patterns[move - 1]) {
-            std::cerr << "host error on move " << move << std::endl;
-            return {Player::UNDEFINED, move, all[answer_id]};
+    for (int i = 0; i < MAX_MOVES; ++i) {
+        if (GetPattern(game_guesses[i], answer_id) != game_patterns[i]) {
+            std::cerr << "host error on move " << i + 1 << std::endl;
+            return {Player::UNDEFINED, i + 1, answers[answer_id]};
         }
     }
-    return {Player::HOST, 0, all[answer_id]};
+    return {Player::HOST, 0, answers[answer_id]};
 }
 
 int main() {
@@ -48,43 +48,35 @@ int main() {
     std::cin >> host_type;
     std::unique_ptr<Host> host;
     if (host_type == 1) {
-        std::cout << "use true wordle list (0/1): ";
-        bool use_twl;
-        std::cin >> use_twl;
-        std::cout << "word id (0 ... " << (use_twl ? twl.size() - 1 : all.size() - 1) << "): ";
+        std::cout << "word id (0 ... " << answers.size() - 1 << "): ";
         size_t answer_id;
         std::cin >> answer_id;
-        host = std::make_unique<HostFixed>(answer_id, use_twl);
+        host = std::make_unique<HostFixed>(answer_id);
     } else if (host_type == 2) {
-        std::cout << "use true wordle list (0/1): ";
-        bool use_twl;
-        std::cin >> use_twl;
-        host = std::make_unique<HostRandom>(use_twl);
+        host = std::make_unique<HostRandom>();
     } else if (host_type == 3) {
         host = std::make_unique<HostStdio>();
     } else if (host_type == 4) {
-        std::cout << "use true wordle list (0/1): ";
-        bool use_twl;
-        std::cin >> use_twl;
-        host = std::make_unique<HostHater>(0.2, use_twl);
+        host = std::make_unique<HostHater>(0.2);
     } else {
         std::cout << "unknown type, exiting" << std::endl;
         return 1;
     }
-    std::cout << "guesser type (1 - stdio, 2 - heuristic): ";
+    std::cout << "guesser type (1 - stdio, 2 - decision tree): ";
     int guesser_type;
     std::cin >> guesser_type;
     std::unique_ptr<Guesser> guesser;
     if (guesser_type == 1) {
         guesser = std::make_unique<GuesserStdio>();
     } else if (guesser_type == 2) {
-        std::cout << "use true wordle list (0/1): ";
-        bool use_twl;
-        std::cin >> use_twl;
-        std::cout << "use frequency priors (0/1): ";
-        bool use_priors;
-        std::cin >> use_priors;
-        guesser = std::make_unique<GuesserHeuristic>(use_twl, use_priors);
+        std::cout << "filename (default greedy_top10): ";
+        std::string filename;
+        getchar();
+        getline(std::cin, filename);
+        if (filename.empty()) filename = "greedy_top10";
+        DecisionTree tree;
+        tree.Read("trees/" + filename);
+        guesser = std::make_unique<GuesserDecisionTree>(tree);
     } else {
         std::cout << "unknown type, exiting" << std::endl;
         return 1;

@@ -1,9 +1,0 @@
-heuristic guesser trained on all words with frequency priors & tested on true wordle list:
-1: 0
-2: 44
-3: 1097
-4: 967
-5: 172
-6: 22
-lost: 7
-average: 3.56821

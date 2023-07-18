@@ -10,8 +10,8 @@
 
 #include "players.h"
 
-const int port = 3000;
-const int max_moves = 6;
+const int PORT = 3000;
+const int MAX_MOVES = 6;
 
 struct GameData {
     std::unique_ptr<Host> host;
@@ -47,9 +47,9 @@ int main() {
             .upgrade = [&](auto *res, auto *req, auto *context) {
                 std::unique_ptr<Host> host;
                 if (req->getParameter(0) == "random") {
-                    host = std::make_unique<HostRandom>(true);
+                    host = std::make_unique<HostRandom>();
                 } else if (req->getParameter(0) == "hater") {
-                    host = std::make_unique<HostHater>(0.2, true);
+                    host = std::make_unique<HostHater>(0.2);
                 } else {
                     res->writeStatus("404 Not Found")->end();
                     return;
@@ -67,27 +67,27 @@ int main() {
             },
             .message = [&](auto *ws, std::string_view message, uWS::OpCode op_code) {
                 auto &[host, move] = *ws->getUserData()->game;
-                size_t guess_id = std::find(all.begin(), all.end(), message) - all.begin();
-                if (guess_id == all.size()) {
+                size_t guess_id = std::find(guesses.begin(), guesses.end(), message) - guesses.begin();
+                if (guess_id == guesses.size()) {
                     ws->send("", op_code);
-                } else if (move < max_moves) {
+                } else if (move < MAX_MOVES) {
                     u_char pat = host->OnGuess(guess_id);
                     std::string pattern = DecodePattern(pat);
                     ws->send(pattern, op_code);
                     ++move;
-                    if (move == max_moves && !IsAllGreen(pat)) {
-                        ws->send("!" + all[host->GetAnswer()], op_code);
+                    if (move == MAX_MOVES && pat != WIN_PAT) {
+                        ws->send("!" + answers[host->GetAnswer()], op_code);
                     }
-                    if (move == max_moves || IsAllGreen(pat)) {
+                    if (move == MAX_MOVES || pat == WIN_PAT) {
                         games.erase(ws->getUserData()->id);
                     }
                 }
             }
-    }).listen(port, [](auto *listen_socket) {
+    }).listen(PORT, [](auto *listen_socket) {
         if (listen_socket) {
-            std::cerr << "Listening on port " << port << std::endl;
+            std::cerr << "Listening on port " << PORT << std::endl;
         } else {
-            std::cerr << "Failed to listen on port " << port << std::endl;
+            std::cerr << "Failed to listen on port " << PORT << std::endl;
             exit(1);
         }
     }).run();
